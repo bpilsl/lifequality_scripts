@@ -31,7 +31,7 @@ c1.SetRightMargin(0.2)
 # Loop over each ROOT file found
 for f in files:
     # Create the output file name based on the input file name and key
-    name = os.path.basename(f) + '_' + key.replace('/', '_') + '.' + fileExtOutput
+    name = os.path.basename(f) + '_' + key.replace('/', '_') + '.'
     print('printing to ', name)
 
     # Open the current ROOT file
@@ -62,4 +62,4 @@ for f in files:
     # Update the canvas and save it to the output path with the specified file extension
     ROOT.gPad.Modified()
     ROOT.gPad.Update()
-    c1.Print(pathOut + name, fileExtOutput)
+    c1.Print(pathOut + name + fileExtOutput, fileExtOutput)
