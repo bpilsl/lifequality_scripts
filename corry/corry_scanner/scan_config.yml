@@ -1,0 +1,16 @@
+global:
+  multi_threaded : true
+  nmb_threads : 10
+  corry_bin : corry
+  template_config : dummy.cfg
+  logfile : log
+  output_file : out
+  run_nmb_template_filename_pattern : run001343
+  run_nmb_replace_filename_pattern : run00
+
+scans:
+  -   type : range
+      param : EventLoaderEUDAQ2.mpw3_tshift
+      lo : -500
+      hi : +500
+      inc : +20
