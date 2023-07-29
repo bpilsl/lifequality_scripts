@@ -1,20 +1,20 @@
-# Importing necessary libraries
 import numpy as np
-import pylab as plb
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-import sys
-
-
-# Thx @ChatGPT for the comments :*
+import argparse
 
 # Defining the Gaussian function to fit the data
 def gauss(x, H, A, x0, sigma):
     return H + A * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
 
+# Parsing command-line arguments
+parser = argparse.ArgumentParser(description='Fit data to Gaussian function and plot the result.')
+parser.add_argument('data_file', type=str, help='Path to the data file.')
+parser.add_argument('-s', '--save_plot', type=str, default=None, help='Path to save the plot (optional).')
+args = parser.parse_args()
 
-# Opening the file specified as a command-line argument
-data_file = open(sys.argv[1])
+# Opening the data file specified as a command-line argument
+data_file = open(args.data_file)
 
 # Initializing empty lists to store data points
 x = []
@@ -71,4 +71,9 @@ plt.xlabel('t [μs]')
 plt.ylabel('ε [%]')
 plt.grid()
 
-plt.show()
+# Saving the plot if the file path is provided
+if args.save_plot:
+    plt.savefig(args.save_plot)
+else:
+    plt.show()
+
