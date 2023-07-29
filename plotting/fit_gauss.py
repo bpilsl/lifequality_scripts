@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import argparse
+import os
 
 # Defining the Gaussian function to fit the data
 def gauss(x, H, A, x0, sigma):
@@ -62,10 +63,15 @@ plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 # Plotting the data and the fitted curve
+plt.figure(figsize=(12, 8))  # Set the figure size (adjust the values as needed)
 plt.plot(x, y, 'b+', label='data')
 plt.plot(x, fit_y, 'r-', label='fit')
 plt.legend()
-plt.title(f'Efficiencies Run#1306 for different time_shifts')
+
+# Remove the file extension from the label in the plot title
+file_name_without_ext = os.path.splitext(args.save_plot)[0] if args.save_plot else "Plot"
+plt.title(f'Efficiencies for different time_shifts ({file_name_without_ext})')
+
 plt.figtext(.15, .8, f'μ = {"%.2f" % x0_fit}\n σ = {"%.2f" % sigma_fit}')
 plt.xlabel('t [μs]')
 plt.ylabel('ε [%]')
@@ -73,7 +79,9 @@ plt.grid()
 
 # Saving the plot if the file path is provided
 if args.save_plot:
-    plt.savefig(args.save_plot)
+    plt.savefig(args.save_plot, dpi=300)  # Set the dpi (dots per inch) value as needed
 else:
+    # Maximize the plot window to full screen before displaying the plot
+    plt.get_current_fig_manager().window.state('zoomed')
     plt.show()
 
