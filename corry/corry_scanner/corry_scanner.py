@@ -1,9 +1,9 @@
 import yaml
-from yaml.loader import SafeLoader
 import argparse
 import os
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
+import subprocess
 
 tmp_corry_config = 'tmp_config'
 
@@ -12,31 +12,46 @@ def generate_tmp_config_file(config, run_nmb):
     # Function to generate a new temporary config file based on the provided config and run number
 
     new_config_file = tmp_corry_config + run_nmb
-    sed_cmd = 'sed "s/' + config['global']['run_nmb_template_filename_pattern'] + (
-            '/' + config['global']['run_nmb_replace_filename_pattern'] + '"' + run_nmb) + (
-        f'/ {config["global"]["template_config"]} > {new_config_file}')
+    sed_cmd = f'sed "s/{config["global"]["run_nmb_template_filename_pattern"]}/{config["global"]["run_nmb_replace_filename_pattern"]}{run_nmb}/" {config["global"]["template_config"]} > {new_config_file}'
 
     print('sedding', sed_cmd)
-    os.system(sed_cmd)
+
+    try:
+        subprocess.run(sed_cmd, shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f'Error occurred while executing sed command: {e}')
+
     return new_config_file
 
 
 # Function to run the "corry" tool with specific parameters
-def run_corry(config, params, scan_nmb):
+def run_corry(config, params):
+    print('run corry')
+
+    # Get the parameter name and its value
+    param_name, param_value = next(iter(params.items()))
+
     # Construct the command to execute the "corry" tool with specific parameters
-    cmd = (f'{config["global"]["corry_bin"]} -c {tmp_corry_config} -l '
-           f'{config["global"]["logfile"] + str(scan_nmb)} '
-           f'-o histogram_file={config["global"]["output_file"] + str(scan_nmb)}')
+    cmd = (f'{config["global"]["corry_bin"]} -c {config["global"]["template_config"]} -l '
+           f'{config["global"]["logfile"]}_{param_name}_{param_value}.txt '
+           f'-o histogram_file={config["global"]["output_file"]}_{param_name}_{param_value}.root')
+
+    print('cmd = ', cmd)
 
     # Append custom parameters to the command
     for key, val in params.items():
-        cmd += f' -o {key}={params[key]}'
+        cmd += f' -o {key}={val}'
 
     # Print the command that will be executed
-    print('executing corry with: ', cmd)
+    print(f'executing corry with: {cmd}')
 
-    # Execute the "corry" tool with the constructed command using os.system
-    os.system(cmd)
+    # Execute the "corry" tool with the constructed command using subprocess.run
+    try:
+        result = subprocess.run(cmd, shell=True, check=True)
+        if result.returncode != 0:
+            print(f'Error occurred while running corry with parameters: {params}')
+    except subprocess.CalledProcessError as e:
+        print(f'Error occurred while running corry with parameters: {params}, Error: {e}')
 
 
 # Function to run multiple scans based on the configuration
@@ -45,21 +60,31 @@ def run_scans(config):
     num_threads = config['global']['nmb_threads']
     multi_threaded = config['global'].get('multi_threaded', True)
 
-    def run_single_scan(scan, scan_index):
+    def run_single_scan(scan):
         if scan['type'] == 'range':
-            n = 0
-            for i in np.arange(scan['lo'], scan['hi'], scan['inc']):
-                params = {scan['param']: i}
-                run_corry(config, params, scan_index * num_threads + n)
-                n += 1
+            with ThreadPoolExecutor(max_workers=num_threads) as executor:
+                for i in np.arange(scan['lo'], scan['hi'], scan['inc']):
+                    if multi_threaded:
+                        print(f'submitting thread for scan parameter {scan["param"]} = {i}')
+                        executor.submit(run_corry, config, {scan["param"]: i})
+                        print('executor submitted')
+                    else:
+                        run_corry(config, {scan["param"]: i})
 
-    if multi_threaded:
+    def run_single_parameter(config, params):
         with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            for scan_index, scan in enumerate(scans):
-                executor.submit(run_single_scan, scan, scan_index)
-    else:
-        for scan_index, scan in enumerate(scans):
-            run_single_scan(scan, scan_index)
+            print(params.items())
+            for param_name, param_value in params.items():
+                if multi_threaded:
+                    print(f'submitting thread for scan parameter {param_name} = {param_value}')
+                    executor.submit(run_corry, config, {param_name: param_value})
+                    print('executor submitted', executor.running())
+                else:
+                    run_corry(config, {param_name: param_value})
+
+    for scan_index, scan in enumerate(scans):
+        print(f'running scan {scan_index + 1}')
+        run_single_scan(scan)
 
 
 if __name__ == "__main__":
