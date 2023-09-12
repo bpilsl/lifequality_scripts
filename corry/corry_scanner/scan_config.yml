@@ -9,8 +9,25 @@ global:
   run_nmb_replace_filename_pattern : run00
 
 scans:
-  -   type : range
+  -   type : range #scan type to scan the specified config file for the speced parameter in the speced range
       param : EventLoaderEUDAQ2.mpw3_tshift
       lo : -500
       hi : +500
       inc : +20
+      template_config : dummy.cfg
+      search_pattern : run001313
+      replace_pattern : run001314
+      output_dir : out1
+  -   type: range
+      param: EventLoaderEUDAQ2.mpw3_tshift
+      lo: -500
+      hi: +500
+      inc: +20
+      template_config: dummy.cfg
+      search_pattern: run001313
+      replace_pattern: run001315
+      output_dir : out2
+  -   type: cfg_replace #scan type to run corry with the speced config file but replace all "search_pattern" with "replace_pattern"
+      template_config: foo.cfg
+      search_pattern: crap_results
+      replace_pattern: good_results

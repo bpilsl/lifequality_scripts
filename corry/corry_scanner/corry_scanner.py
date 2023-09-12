@@ -8,11 +8,11 @@ import subprocess
 tmp_corry_config = 'tmp_config'
 
 
-def generate_tmp_config_file(config, run_nmb):
+def generate_tmp_config_file(**kwargs):
     # Function to generate a new temporary config file based on the provided config and run number
 
-    new_config_file = tmp_corry_config + run_nmb
-    sed_cmd = f'sed "s/{config["global"]["run_nmb_template_filename_pattern"]}/{config["global"]["run_nmb_replace_filename_pattern"]}{run_nmb}/" {config["global"]["template_config"]} > {new_config_file}'
+    new_config_file = tmp_corry_config + str(kwargs['scan_nmb'])
+    sed_cmd = f'sed "s/{kwargs["search_pattern"]}/{kwargs["replace_pattern"]}/" {kwargs["template_config"]} > {new_config_file}'
 
     print('sedding', sed_cmd)
 
@@ -25,22 +25,32 @@ def generate_tmp_config_file(config, run_nmb):
 
 
 # Function to run the "corry" tool with specific parameters
-def run_corry(config, params):
+def run_corry(config, **kwargs):
     print('run corry')
 
-    # Get the parameter name and its value
-    param_name, param_value = next(iter(params.items()))
+    c_file = config["global"]["template_config"]
+    if 'tmp_config' in kwargs:
+        c_file = kwargs['tmp_config']
 
-    # Construct the command to execute the "corry" tool with specific parameters
-    cmd = (f'{config["global"]["corry_bin"]} -c {config["global"]["template_config"]} -l '
-           f'{config["global"]["logfile"]}_{param_name}_{param_value}.txt '
-           f'-o histogram_file={config["global"]["output_file"]}_{param_name}_{param_value}.root')
+    cmd = f'{config["global"]["corry_bin"]} -c {c_file} '
+
+    params = kwargs.get('params')
+    if params:
+        # Get the parameter name and its value
+        param_name, param_value = next(iter(params.items()))
+        cmd += (f'-l {config["global"]["logfile"]}_{param_name}_{param_value}.txt '
+                f'-o histogram_file={config["global"]["output_file"]}_{param_name}_{param_value}.root ')
+        # Append custom parameters to the command
+        for key, val in params.items():
+            cmd += f' -o {key}={val}'
+    else:
+        cmd += (f'-l {config["global"]["logfile"]}_{kwargs["output_modifier"]}.txt '
+                f'-o histogram_file={config["global"]["output_file"]}_{kwargs["output_modifier"]}.root ')
+
+    if 'output_dir' in kwargs and kwargs['output_dir'] is not None:
+        cmd += f'-o output_directory={kwargs["output_dir"]}'
 
     print('cmd = ', cmd)
-
-    # Append custom parameters to the command
-    for key, val in params.items():
-        cmd += f' -o {key}={val}'
 
     # Print the command that will be executed
     print(f'executing corry with: {cmd}')
@@ -60,37 +70,38 @@ def run_scans(config):
     num_threads = config['global']['nmb_threads']
     multi_threaded = config['global'].get('multi_threaded', True)
 
-    def run_single_scan(scan):
+    def run_single_scan(scan, cfg_file):
         if scan['type'] == 'range':
             with ThreadPoolExecutor(max_workers=num_threads) as executor:
                 for i in np.arange(scan['lo'], scan['hi'], scan['inc']):
                     if multi_threaded:
                         print(f'submitting thread for scan parameter {scan["param"]} = {i}')
-                        executor.submit(run_corry, config, {scan["param"]: i})
+                        executor.submit(run_corry, config, params={scan["param"]: i}, output_dir=scan.get('output_dir'),
+                                        tmp_config=cfg_file)
                         print('executor submitted')
                     else:
-                        run_corry(config, {scan["param"]: i})
+                        run_corry(config, params={scan["param"]: i}, output_dir=scan['output_dir'], tmp_config=cfg_file)
+        if scan['type'] == 'cfg_replace':
+            run_corry(config,  output_dir=scan.get('output_dir'), tmp_config=cfg_file, output_modifier=scan.get('name'))
 
-    def run_single_parameter(config, params):
-        with ThreadPoolExecutor(max_workers=num_threads) as executor:
-            print(params.items())
-            for param_name, param_value in params.items():
-                if multi_threaded:
-                    print(f'submitting thread for scan parameter {param_name} = {param_value}')
-                    executor.submit(run_corry, config, {param_name: param_value})
-                    print('executor submitted', executor.running())
-                else:
-                    run_corry(config, {param_name: param_value})
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        for scan_index, scan in enumerate(scans):
+            corry_config = config["global"]["template_config"]
+            if 'template_config' in scan:
+                corry_config = generate_tmp_config_file(template_config=scan['template_config'], scan_nmb=scan_index,
+                                                        search_pattern=scan['search_pattern'],
+                                                        replace_pattern=scan['replace_pattern'])
 
-    for scan_index, scan in enumerate(scans):
-        print(f'running scan {scan_index + 1}')
-        run_single_scan(scan)
+            if multi_threaded:
+                executor.submit(run_single_scan, scan, corry_config)
+            else:
+                print(f'running scan {scan_index}')
+                run_single_scan(scan, corry_config)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run scans using the "corry" tool based on a configuration file.')
     parser.add_argument('-c', '--config', required=True, help='YAML configuration file containing the scan parameters')
-    parser.add_argument('-r', '--run', help='Run number to be used in the temporary config file name')
     parser.add_argument('-d', '--delete', action='store_true', default=False,
                         help='Flag to delete the temporary config file after execution (default: False)')
 
@@ -101,10 +112,6 @@ if __name__ == "__main__":
     # Read the configuration from the YAML file provided as a command-line argument
     with open(args.config) as f:
         config = yaml.safe_load(f)
-
-    if args.run is not None:
-        tmp_corry_config = generate_tmp_config_file(config, args.run)
-        config['global']['template_config'] = tmp_corry_config
 
     # Call the run_scans function to initiate the execution of the scans based on the loaded config
     run_scans(config)
