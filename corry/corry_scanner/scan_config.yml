@@ -5,8 +5,11 @@ global:
   template_config : dummy.cfg
   logfile : log
   output_file : out
-  run_nmb_template_filename_pattern : run001343
-  run_nmb_replace_filename_pattern : run00
+  output_dir : output
+  make_report : true
+  plots_in_report:
+  report_name: reports/report
+
 
 scans:
   -   type : range #scan type to scan the specified config file for the speced parameter in the speced range

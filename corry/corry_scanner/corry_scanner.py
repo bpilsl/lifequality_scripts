@@ -25,7 +25,7 @@ def generate_tmp_config_file(**kwargs):
 
 
 # Function to run the "corry" tool with specific parameters
-def run_corry(config, **kwargs):
+def run_corry(config, scan, **kwargs):
     print('run corry')
 
     c_file = config["global"]["template_config"]
@@ -33,24 +33,28 @@ def run_corry(config, **kwargs):
         c_file = kwargs['tmp_config']
 
     cmd = f'{config["global"]["corry_bin"]} -c {c_file} '
+    output_file = ''
+    scan['output_file'] = ''
 
     params = kwargs.get('params')
     if params:
         # Get the parameter name and its value
         param_name, param_value = next(iter(params.items()))
+        output_file = f'{config["global"]["output_file"]}_{param_name}_{param_value}.root '
         cmd += (f'-l {config["global"]["logfile"]}_{param_name}_{param_value}.txt '
-                f'-o histogram_file={config["global"]["output_file"]}_{param_name}_{param_value}.root ')
+                f'-o histogram_file={output_file}')
         # Append custom parameters to the command
         for key, val in params.items():
             cmd += f' -o {key}={val}'
     else:
-        cmd += (f'-l {config["global"]["logfile"]}_{kwargs["output_modifier"]}.txt '
-                f'-o histogram_file={config["global"]["output_file"]}_{kwargs["output_modifier"]}.root ')
+        output_file = f'{config["global"]["output_file"]}_{kwargs["output_modifier"]}.root '
+        cmd += f'-l {config["global"]["logfile"]}_{kwargs["output_modifier"]}.txt '
+
+    cmd += f'-o histogram_file={output_file}'
 
     if 'output_dir' in kwargs and kwargs['output_dir'] is not None:
         cmd += f'-o output_directory={kwargs["output_dir"]}'
-
-    print('cmd = ', cmd)
+        scan['output_file'] = kwargs['output_dir'] + '/'
 
     # Print the command that will be executed
     print(f'executing corry with: {cmd}')
@@ -63,6 +67,7 @@ def run_corry(config, **kwargs):
     except subprocess.CalledProcessError as e:
         print(f'Error occurred while running corry with parameters: {params}, Error: {e}')
 
+    scan['output_file'] += output_file
 
 # Function to run multiple scans based on the configuration
 def run_scans(config):
@@ -76,13 +81,15 @@ def run_scans(config):
                 for i in np.arange(scan['lo'], scan['hi'], scan['inc']):
                     if multi_threaded:
                         print(f'submitting thread for scan parameter {scan["param"]} = {i}')
-                        executor.submit(run_corry, config, params={scan["param"]: i}, output_dir=scan.get('output_dir'),
+                        executor.submit(run_corry, config, scan, params={scan["param"]: i}, output_dir=config['global']['output_dir'],
                                         tmp_config=cfg_file)
                         print('executor submitted')
                     else:
-                        run_corry(config, params={scan["param"]: i}, output_dir=scan['output_dir'], tmp_config=cfg_file)
+                        run_corry(config, scan, params={scan["param"]: i}, output_dir=config['global']['output_dir'], tmp_config=cfg_file)
         if scan['type'] == 'cfg_replace':
-            run_corry(config,  output_dir=scan.get('output_dir'), tmp_config=cfg_file, output_modifier=scan.get('name'))
+            run_corry(config, scan, output_dir=config['global']['output_dir'], tmp_config=cfg_file, output_modifier=scan.get('name'))
+
+        finalize_scan(config, scan)
 
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         for scan_index, scan in enumerate(scans):
@@ -99,11 +106,41 @@ def run_scans(config):
                 run_single_scan(scan, corry_config)
 
 
+def finalize_scan(config, scan):
+    if not config['global']['make_report']:
+        return
+
+    report_name = f'{config["global"]["report_name"]}_{scan["output_file"].split("/")[1]}'
+
+    import ROOT
+    c1 = ROOT.TCanvas("c1", "", 10, 10, 1100, 700)
+    c1.SetRightMargin(0.2)
+    root_file_name = scan['output_file']
+    r = ROOT.TFile(root_file_name)
+    for key in config['global']['plots_in_report']:
+        obj = r.Get(key)
+        if not obj:
+            print(key, 'missing in root file', r)
+            continue
+        h1 = obj.Clone()
+        h1.SetDirectory(ROOT.gROOT)
+
+        # Clear the canvas before drawing the next plot
+        c1.Clear()
+        c1.cd()
+        h1.Draw('colz')
+        ROOT.gPad.Modified()
+        ROOT.gPad.Update()
+        c1.Print(f'{report_name}.pdf(', '.pdf')
+
+    c1.Clear()
+    c1.Print(f'{report_name}.pdf)', '.pdf')  # close pdf report (with ')' )
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run scans using the "corry" tool based on a configuration file.')
     parser.add_argument('-c', '--config', required=True, help='YAML configuration file containing the scan parameters')
-    parser.add_argument('-d', '--delete', action='store_true', default=False,
-                        help='Flag to delete the temporary config file after execution (default: False)')
 
     args = parser.parse_args()
 
@@ -115,7 +152,3 @@ if __name__ == "__main__":
 
     # Call the run_scans function to initiate the execution of the scans based on the loaded config
     run_scans(config)
-
-    # Delete the temporary config file if the flag is set to True and the run number is provided
-    if args.run is not None and args.delete:
-        os.remove(tmp_corry_config)
