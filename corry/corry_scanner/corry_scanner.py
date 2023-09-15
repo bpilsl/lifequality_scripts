@@ -12,12 +12,17 @@ def generate_tmp_config_file(**kwargs):
     # Function to generate a new temporary config file based on the provided config and run number
 
     new_config_file = tmp_corry_config + str(kwargs['scan_nmb'])
-    sed_cmd = f'sed "s/{kwargs["search_pattern"]}/{kwargs["replace_pattern"]}/" {kwargs["template_config"]} > {new_config_file}'
 
-    print('sedding', sed_cmd)
+    sed_arg = 'sed "'
+    print(kwargs["search_pattern"][1], kwargs["replace_pattern"][0])
+    for i, pat in enumerate(kwargs["search_pattern"]):
+        sed_arg += f's/{kwargs["search_pattern"][i]}/{kwargs["replace_pattern"][i]}/;  '
+    sed_arg += f'" {kwargs["template_config"]} > {new_config_file}'
+
+    print('sedding', sed_arg)
 
     try:
-        subprocess.run(sed_cmd, shell=True, check=True)
+        subprocess.run(sed_arg, check=True, shell=True)
     except subprocess.CalledProcessError as e:
         print(f'Error occurred while executing sed command: {e}')
 
@@ -76,6 +81,9 @@ def run_scans(config):
     multi_threaded = config['global'].get('multi_threaded', True)
 
     def run_single_scan(scan, cfg_file):
+        extra_sed_cmd = scan.get('extra_sed_cmd')
+        if extra_sed_cmd:
+            subprocess.run('sed', args=extra_sed_cmd)
         if scan['type'] == 'range':
             with ThreadPoolExecutor(max_workers=num_threads) as executor:
                 for i in np.arange(scan['lo'], scan['hi'], scan['inc']):

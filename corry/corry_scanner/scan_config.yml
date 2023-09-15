@@ -32,5 +32,9 @@ scans:
       output_dir : out2
   -   type: cfg_replace #scan type to run corry with the speced config file but replace all "search_pattern" with "replace_pattern"
       template_config: foo.cfg
-      search_pattern: crap_results
-      replace_pattern: good_results
+      search_pattern:
+        - crap_results
+        - foo
+      replace_pattern:
+        - good_results
+        - bar
