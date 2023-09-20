@@ -14,7 +14,6 @@ def generate_tmp_config_file(**kwargs):
     new_config_file = tmp_corry_config + str(kwargs['scan_nmb'])
 
     sed_arg = 'sed "'
-    print(kwargs["search_pattern"][1], kwargs["replace_pattern"][0])
     for i, pat in enumerate(kwargs["search_pattern"]):
         sed_arg += f's/{kwargs["search_pattern"][i]}/{kwargs["replace_pattern"][i]}/;  '
     sed_arg += f'" {kwargs["template_config"]} > {new_config_file}'
