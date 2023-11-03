@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import progressbar
+import sys
 
 nx, ny, nz = 62, 62, 300  # Adjust grid size as needed
 lx = ly = 62
@@ -10,7 +12,7 @@ epsilon = 11.7
 
 bias_n_well = -90
 bias_p = 0
-output_file = 'test.init'
+output_file = sys.argv[1]
 
 grid = np.zeros((nx, ny, nz))
 
@@ -60,6 +62,10 @@ def laplace_solver_3d(nx, ny, nz, boundaries, max_iterations=1000, tolerance=1e-
     # Create an array to store the Laplace equation update values
     laplace_update = np.zeros((nx, ny, nz), dtype=float)
 
+    bar = progressbar.ProgressBar(maxval=max_iterations, \
+                                  widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
+    bar.start()
+
     for iteration in range(max_iterations):
         # Calculate the Laplace equation update values for interior grid points.
         # We exclude the boundary points (0 and nx-1 in x, 0 and ny-1 in y, 0 and nz-1 in z)
@@ -99,8 +105,11 @@ def laplace_solver_3d(nx, ny, nz, boundaries, max_iterations=1000, tolerance=1e-
 
         # Check for convergence by comparing the new grid to the previous one
         max_diff = np.max(np.abs(laplace_update))
-        print('iteration ', iteration, 'with error ', max_diff)
+        bar.update(iteration)
+        # print('iteration ', iteration, 'with delta ', max_diff)
         if max_diff < tolerance:
+            bar.finish()
+            print('achieved convergence')
             break
 
     return grid
@@ -189,4 +198,4 @@ solution = laplace_solver_3d(nx, ny, nz, bounds, 10000)
 E = calculate_electric_field(solution)
 generate_init_file(output_file, E)
 print('saved E-field to ', output_file)
-# plot_2d_slice(solution, 30)
+plot_2d_slice(solution, 30)
