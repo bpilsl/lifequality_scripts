@@ -17,29 +17,25 @@ grid = np.zeros((nx, ny, nz))
 
 class Boundary:
     def __init__(self, nx, ny, nz):
-        nx = nx
-        ny = ny
-        nz = nz
+        self.nx = nx
+        self.ny = ny
+        self.nz = nz
         self.boundaries = np.zeros((nx, ny, nz))
         self.fixed_bounds = []
 
     def add_box(self, origin, dimensions, potential):
-        for x in range(nx):
-            for y in range(ny):
-                for z in range(nz):
-                    if x >= origin[0] and x < origin[0] + dimensions[0] \
-                            and y >= origin[1] and y < origin[1] + dimensions[1] \
-                            and z >= origin[2] and z < origin[2] + dimensions[2]:
-                        self.boundaries[x, y, z] = potential
-                        self.fixed_bounds.append((x, y, z))
+        x_start, y_start, z_start = origin
+        x_end, y_end, z_end = (x_start + dimensions[0], y_start + dimensions[1], z_start + dimensions[2])
+        self.boundaries[x_start:x_end, y_start:y_end, z_start:z_end] = potential
+        fixed_points = np.array(np.where(self.boundaries != 0)).T
+        self.fixed_bounds = [tuple(point) for point in fixed_points]
 
     def is_fixed(self, point):
-        if point in self.fixed_bounds:
-            return True
-        return False
+        return tuple(point) in self.fixed_bounds
 
     def potential(self, point):
         return self.boundaries[point[0], point[1], point[2]]
+
 
     def present_yourself(self, x):
         sns.heatmap(self.boundaries[:, x, :]).set(
@@ -58,11 +54,8 @@ def laplace_solver_3d(nx, ny, nz, boundaries, max_iterations=1000, tolerance=1e-
     grid = np.empty((nx, ny, nz), dtype=float)
 
     # Initialize the grid with user-defined boundary conditions
-    for x in range(nx):
-        for y in range(ny):
-            for z in range(nz):
-                if boundaries.is_fixed((x, y, z)):
-                    grid[x, y, z] = boundaries.potential((x, y, z))
+    for x, y, z in boundaries.fixed_bounds:
+        grid[x, y, z] = boundaries.potential((x, y, z))
 
     # Create an array to store the Laplace equation update values
     laplace_update = np.zeros((nx, ny, nz), dtype=float)
@@ -185,10 +178,10 @@ def plot_2d_slice(solution, x_slice):
 
 bounds = Boundary(nx, ny, nz)
 bounds.add_box((10, 10, 0), (40, 40, 5), bias_n_well)
-bounds.add_box((1,1,0),(60, 1, 1), bias_p)
-bounds.add_box((1,1,0),(1, 60, 1), bias_p)
-bounds.add_box((1,60,0),(60, 1, 1), bias_p)
-bounds.add_box((60,1,0),(1, 60, 1), bias_p)
+# bounds.add_box((1,1,0),(60, 1, 1), bias_p)
+# bounds.add_box((1,1,0),(1, 60, 1), bias_p)
+# bounds.add_box((1,60,0),(60, 1, 1), bias_p)
+# bounds.add_box((60,1,0),(1, 60, 1), bias_p)
 bounds.add_box((0, 0, 100), (nx, ny, 1), 0)
 # bounds.present_yourself(30)
 
