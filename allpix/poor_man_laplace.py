@@ -181,7 +181,6 @@ def plot_2d_slice(solution, x_slice):
     X_slice = solution[x_slice, :, :]  # Extract the 2D slice at a specific x value
     ax = sns.heatmap(X_slice)
     ax.invert_yaxis()
-    plt.savefig('p_100V.png')
     plt.show()
 
 
