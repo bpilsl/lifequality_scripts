@@ -38,7 +38,6 @@ class Boundary:
     def potential(self, point):
         return self.boundaries[point[0], point[1], point[2]]
 
-
     def present_yourself(self, x):
         sns.heatmap(self.boundaries[:, x, :]).set(
             title='y slice')
@@ -62,7 +61,7 @@ def laplace_solver_3d(nx, ny, nz, boundaries, max_iterations=1000, tolerance=1e-
     # Create an array to store the Laplace equation update values
     laplace_update = np.zeros((nx, ny, nz), dtype=float)
 
-    bar = progressbar.ProgressBar(maxval=max_iterations, \
+    bar = progressbar.ProgressBar(maxval=max_iterations,
                                   widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
     bar.start()
 
@@ -94,14 +93,15 @@ def laplace_solver_3d(nx, ny, nz, boundaries, max_iterations=1000, tolerance=1e-
         # all interior grid points. These updates are then applied to the 'grid' to move towards
         # a solution for the Laplace equation.
 
-        laplace_update[1:nx-1, 1:ny-1, 1:nz-1] = (
-            grid[2:nx, 1:ny-1, 1:nz-1] + grid[0:nx-2, 1:ny-1, 1:nz-1] +
-            grid[1:nx-1, 2:ny, 1:nz-1] + grid[1:nx-1, 0:ny-2, 1:nz-1] +
-            grid[1:nx-1, 1:ny-1, 2:nz] + grid[1:nx-1, 1:ny-1, 0:nz-2] - 6 * grid[1:nx-1, 1:ny-1, 1:nz-1]
+        laplace_update[1:nx - 1, 1:ny - 1, 1:nz - 1] = (
+                grid[2:nx, 1:ny - 1, 1:nz - 1] + grid[0:nx - 2, 1:ny - 1, 1:nz - 1] +
+                grid[1:nx - 1, 2:ny, 1:nz - 1] + grid[1:nx - 1, 0:ny - 2, 1:nz - 1] +
+                grid[1:nx - 1, 1:ny - 1, 2:nz] + grid[1:nx - 1, 1:ny - 1, 0:nz - 2] - 6 * grid[1:nx - 1, 1:ny - 1,
+                                                                                               1:nz - 1]
         )
 
         # Update the grid using the Laplace equation update values
-        grid[1:nx-1, 1:ny-1, 1:nz-1] += laplace_update[1:nx-1, 1:ny-1, 1:nz-1] / 6.0
+        grid[1:nx - 1, 1:ny - 1, 1:nz - 1] += laplace_update[1:nx - 1, 1:ny - 1, 1:nz - 1] / 6.0
 
         # Check for convergence by comparing the new grid to the previous one
         max_diff = np.max(np.abs(laplace_update))
@@ -125,12 +125,12 @@ def calculate_electric_field(potential):
 
 def generate_init_file(output_file, e_field):
     with open(output_file, 'w') as f:
-        f.write(f'primitive_laplace_solver_nWell_{bias_n_well}V_p_{bias_p}V\n' \
-                '##SEED##  ##EVENTS##\n' \
-                '##TURN## ##TILT## 1.0\n' \
-                '0.00 0.0 0.00\n' \
-                f'{nz} {nx} {ny} ' \
-                '293. 0.0 1.12 1 ' \
+        f.write(f'primitive_laplace_solver_nWell_{bias_n_well}V_p_{bias_p}V\n'
+                '##SEED##  ##EVENTS##\n'
+                '##TURN## ##TILT## 1.0\n'
+                '0.00 0.0 0.00\n'
+                f'{nz} {nx} {ny} '
+                '293. 0.0 1.12 1 '
                 f'{nx} {ny} {nz} 0\n')
 
         for z in range(nz):
@@ -186,7 +186,7 @@ def plot_2d_slice(solution, x_slice):
 
 
 bounds = Boundary(nx, ny, nz)
-bounds.add_box((10, 10, 0), (40, 40, 5), bias_n_well)
+bounds.add_box((10, 10, 0), (40, 40, 15), bias_n_well)
 # bounds.add_box((1,1,0),(60, 1, 1), bias_p)
 # bounds.add_box((1,1,0),(1, 60, 1), bias_p)
 # bounds.add_box((1,60,0),(60, 1, 1), bias_p)
