@@ -39,13 +39,14 @@ class Boundary:
         return self.boundaries[point[0], point[1], point[2]]
 
     def present_yourself(self, x):
-        sns.heatmap(self.boundaries[:, x, :]).set(
-            title='y slice')
-        plt.show()
-        sns.heatmap(self.boundaries[x, :, :]).set(
-            title='x slice')
-        plt.show()
-        sns.heatmap(self.boundaries[:, :, x]).set(
+        fig, axes = plt.subplots(3)
+        # sns.heatmap(self.boundaries[:, x, :], ax=axes[0]).set(
+        #     title='y slice')
+        # plt.show()
+        # sns.heatmap(self.boundaries[x, :, :], ax=axes[1]).set(
+        #     title='x slice')
+        # plt.show()
+        sns.heatmap(self.boundaries[:, :, x], ax=axes[2]).set(
             title='z slice')
         plt.show()
 
@@ -100,6 +101,10 @@ def laplace_solver_3d(nx, ny, nz, boundaries, max_iterations=1000, tolerance=1e-
                                                                                                1:nz - 1]
         )
 
+        # suppress updates of fixed boundaries
+        for x, y, z in boundaries.fixed_bounds:
+            laplace_update[x, y, z] = 0
+
         # Update the grid using the Laplace equation update values
         grid[1:nx - 1, 1:ny - 1, 1:nz - 1] += laplace_update[1:nx - 1, 1:ny - 1, 1:nz - 1] / 6.0
 
@@ -117,8 +122,9 @@ def laplace_solver_3d(nx, ny, nz, boundaries, max_iterations=1000, tolerance=1e-
 
 def calculate_electric_field(potential):
     # Calculate the electric field components using central differences
-    E = np.multiply(np.gradient(potential), epsilon)  # convert D field to E
-    E = np.multiply(E, 1e4)  # unit change from V/um -> V/cm
+    D = np.gradient(potential, 1E-4) # the D-field, by definition we applied a mesh with 1um resolution
+    # the 1E-4 gets us the wanted units for the D-field (V/cm)
+    E = np.multiply(D, epsilon)  # convert D field to E
 
     return E
 
@@ -185,16 +191,16 @@ def plot_2d_slice(solution, x_slice):
 
 
 bounds = Boundary(nx, ny, nz)
-bounds.add_box((10, 10, 0), (40, 40, 15), bias_n_well)
+bounds.add_box((10, 10, 285), (40, 40, 15), bias_n_well)
 # bounds.add_box((1,1,0),(60, 1, 1), bias_p)
 # bounds.add_box((1,1,0),(1, 60, 1), bias_p)
 # bounds.add_box((1,60,0),(60, 1, 1), bias_p)
 # bounds.add_box((60,1,0),(1, 60, 1), bias_p)
 bounds.add_box((0, 0, 100), (nx, ny, 1), 0)
-# bounds.present_yourself(30)
+bounds.present_yourself(290)
 
-solution = laplace_solver_3d(nx, ny, nz, bounds, 10000)
-E = calculate_electric_field(solution)
+potential = laplace_solver_3d(nx, ny, nz, bounds, 10000)
+E = calculate_electric_field(potential)
 generate_init_file(output_file, E)
 print('saved E-field to ', output_file)
-plot_2d_slice(solution, 30)
+plot_2d_slice(potential, 30)
