@@ -29,7 +29,7 @@ with open(input_filename, 'r') as input_file:
 # Write the output file
 with open(output_filename, 'w') as output_file:
     for row, col in masked_pixels:
-        output_file.write(f"p {row:02d} {col:02d}\n")
+        output_file.write(f"p {col:02d} {row:02d}\n")
     for row in masked_rows:
         output_file.write(f"r {row}\n")
 
