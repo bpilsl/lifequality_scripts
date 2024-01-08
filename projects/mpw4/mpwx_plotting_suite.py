@@ -124,7 +124,7 @@ def plot_scurve(file):
     var = np.average((mids - mean) ** 2, weights=counts)
     std_dev = np.sqrt(var)
     ax3.hist(bins[:-1], bins, weights=counts)   
-    ax3.text(max(x_data) * .9, max(counts) * .9, f'$\mu = $ {mean:.3f}\n$\sigma = $ {std_dev:.3f}')
+    ax3.text(max(x_data) * .9, max(counts) * .9, f'$\mu = $ {mean:.3f}V\n$\sigma = $ {std_dev:.3f}V')
     ax3.grid()
     plt.xlim(min(x_data), max(x_data))
 
