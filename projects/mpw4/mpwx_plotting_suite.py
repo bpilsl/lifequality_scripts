@@ -97,6 +97,7 @@ def plot_scurve(file):
         x_data = np.array(pixel['Voltage'])
         y_data = np.array(pixel['Hits'])
         ax1.scatter(x_data, y_data, marker='.', label=f"Pixel {pixel['Pixel']}")
+        plt.xlim(min(x_data), max(x_data))
         try:
             p0 = [max(y_data), np.median(x_data), 1, min(y_data)]  # this is a mandatory initial guess
             popt, _ = curve_fit(sigmoid, x_data, y_data, p0, maxfev=100000)
@@ -117,7 +118,15 @@ def plot_scurve(file):
     ax2.invert_yaxis()
     ax3 = plt.subplot(223)
     ax3.set(title='VT50 histogram', xlabel='VT50 [V]', ylabel='Counts')
-    ax3.hist(vt50_map.flatten(), bins=100)
+    counts, bins = np.histogram(vt50_map.flatten(), bins=100)
+    mids = 0.5 * (bins[1:] + bins[:-1])
+    mean = np.average(mids, weights=counts)
+    var = np.average((mids - mean) ** 2, weights=counts)
+    std_dev = np.sqrt(var)
+    ax3.hist(bins[:-1], bins, weights=counts)   
+    ax3.text(max(x_data) * .9, max(counts) * .9, f'$\mu = $ {mean:.3f}\n$\sigma = $ {std_dev:.3f}')
+    ax3.grid()
+    plt.xlim(min(x_data), max(x_data))
 
 def plot_spectrum(file):
     with open(file, 'r') as f:
