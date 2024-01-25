@@ -1,6 +1,7 @@
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 import re
 import sys
 import warnings
@@ -37,17 +38,23 @@ def plot_hitmap(file, plot_hist):
                 hits = int(splitted[col])
                 hitmap[row, col - 1] = hits
 
-        hot_pixel = np.argwhere(hitmap > 200)
+        hot_pixel = np.argwhere(hitmap > 10)
 
         if hot_pixel.any():
             print('hot_pixels: ', hot_pixel)
         if plot_hist:
             ax1 = plt.subplot(221)
             ax1.set(title='Histogram', xlabel='TDAC values', ylabel='Counts')
-            plt.hist(hitmap.flatten(), bins=15)
+            plt.xlim(0, 15)
+            tdac_map = hitmap.flatten()
+            tdac_map = tdac_map[tdac_map >= 0]  # get rid of -1
+            plt.hist(tdac_map, bins=15)
             ax2 = plt.subplot(222)
+            ax2.set_title('TDAC map')
         else:
             ax2 = plt.subplot(111)
+            ax2.set_xlabel('column')
+            ax2.set_ylabel('row')
         sns.heatmap(hitmap, annot=False)
         ax2.invert_yaxis()
 
@@ -58,8 +65,12 @@ def plot_scurve(file):
         y = L / (1 + np.exp(-k * (x - x0))) + b
         return y
 
+    def gaussian(x, amplitude, mean, stddev):
+        return amplitude * np.exp(-((x - mean) / stddev) ** 2 / 2)
+
     def vt_from_s(y, L, x0, k, b):
         return - 1 / k * np.log(L / (y - b) - 1) + x0
+
     pixel_data = []
     current_pixel = {}
 
@@ -90,7 +101,8 @@ def plot_scurve(file):
     ax1 = plt.subplot(221)
     # plt.xlabel('Injection Voltage [V]')
     # plt.ylabel('Number of Hits')
-    ax1.set(title='Number of Hits vs. Injection Voltage for Pixels', xlabel='Injection Voltage [V]', ylabel='Number of Hits')
+    ax1.set(title='Number of Hits vs. Injection Voltage for Pixels', xlabel='Injection Voltage [V]',
+            ylabel='Number of Hits')
     # ax1.legend()
     ax1.grid(True)
     for pixel in pixel_data:
@@ -118,15 +130,32 @@ def plot_scurve(file):
     ax2.invert_yaxis()
     ax3 = plt.subplot(223)
     ax3.set(title='VT50 histogram', xlabel='VT50 [V]', ylabel='Counts')
-    counts, bins = np.histogram(vt50_map.flatten(), bins=100)
-    mids = 0.5 * (bins[1:] + bins[:-1])
-    mean = np.average(mids, weights=counts)
-    var = np.average((mids - mean) ** 2, weights=counts)
-    std_dev = np.sqrt(var)
-    ax3.hist(bins[:-1], bins, weights=counts)   
-    ax3.text(max(x_data) * .9, max(counts) * .9, f'$\mu = $ {mean:.3f}V\n$\sigma = $ {std_dev:.3f}V')
+    no_nan = vt50_map.flatten()[~np.isnan(vt50_map.flatten())]
+    counts, bins = np.histogram(no_nan, bins=100)
+
+    bins = bins[1:]
+    counts = counts[1:]  # 0th bin contains fit fails, or not scanned pixels
+
+    # Calculate bin centers
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+
+    # Use curve_fit to fit the Gaussian function to the histogram data
+    initial_guess = [1.0, np.mean(no_nan), np.std(no_nan)]
+    params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
+    amplitude, mean, stddev = params
+    x_fit = np.linspace(min(no_nan), max(no_nan), 1000)
+    ax3.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
+    ax3.hist(bins[:-1], bins, weights=counts)
+
+    # box with statistics
+    props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
+    stats = f'$\\mu$= {mean * 1000.0:.1f}mV\n$\\sigma$={stddev * 1000.0:.1f}mV'
+    ax3.text(0.75, 0.95, stats, transform=ax3.transAxes, fontsize=15,
+             verticalalignment='top', bbox=props)
+
     ax3.grid()
     plt.xlim(min(x_data), max(x_data))
+
 
 def plot_spectrum(file):
     with open(file, 'r') as f:
@@ -138,9 +167,8 @@ def plot_spectrum(file):
         bins = np.arange(0, 257)
 
         mids = 0.5 * (bins[1:] + bins[:-1])
-        print(mids,counts,  mids * counts)
         mean = np.average(mids, weights=counts)
-        var = np.average((mids - mean)**2, weights=counts)
+        var = np.average((mids - mean) ** 2, weights=counts)
         std_dev = np.sqrt(var)
         ax = plt.subplot(111)
         ax.set(xlabel='ToT [50ns]', ylabel='Counts', title='Spectrum')
@@ -148,6 +176,7 @@ def plot_spectrum(file):
         ax.text(200, 14, f'Avg: {mean:.2f}\nStdDev: {std_dev:.2f}')
 
         ax.stairs(counts, bins)
+
 
 def deduce_data_type(file):
     with open(file, 'r') as f:
@@ -161,20 +190,29 @@ def deduce_data_type(file):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Plotting suite for data of the RD50-MPWx series")
+    parser.add_argument('-s', '--save_path', help='Path to save plot to')
+    parser.add_argument('files', nargs='+', help='Input file(s)')
+    args = parser.parse_args()
+    save_path = args.save_path
+
     warnings.simplefilter("error", OptimizeWarning)
-    file = sys.argv[1]
-    data_type = deduce_data_type(file)
-    if data_type == 'hitmap':
-        plot_hitmap(file, False)
-    elif data_type == 'scurve':
-        plot_scurve(file)
+    for i, file in enumerate(args.files):
+        data_type = deduce_data_type(file)
+        if data_type == 'hitmap':
+            plot_hitmap(file, False)
+        elif data_type == 'scurve':
+            plot_scurve(file)
 
-    elif data_type == 'tdac_map':
-        plot_hitmap(file, True)
-    elif data_type == 'spectrum':
-        plot_spectrum(file)
-    else:
-        print('unsupported data type', data_type)
-        exit(1)
+        elif data_type == 'tdac_map':
+            plot_hitmap(file, True)
+        elif data_type == 'spectrum':
+            plot_spectrum(file)
+        else:
+            print('unsupported data type', data_type)
+            exit(1)
 
-    plt.show()
+        if save_path:
+            plt.savefig(f'{save_path}_{i}.png')
+        else:
+            plt.show()
