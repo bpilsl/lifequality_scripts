@@ -89,9 +89,14 @@ def plot_scurve(file):
                 col = int(col)
                 current_pixel['Index'] = (row, col)
             elif line.startswith('0.') or line.startswith('1.'):
-                voltage, hits, _ = line.split()
-                current_pixel['Voltage'].append(float(voltage))
-                current_pixel['Hits'].append(int(hits))
+                # Extract voltage and hits information for each pixel
+                try:
+                    voltage, hits, _ = line.split()
+                    current_pixel['Voltage'].append(float(voltage))
+                    current_pixel['Hits'].append(int(hits))
+                except:
+                    print('broken line ', line)
+                    continue
 
     # Append the last pixel's data
     if current_pixel:
