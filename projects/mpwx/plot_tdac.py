@@ -7,16 +7,19 @@ import warnings
 from glob import glob
 from scipy.optimize import curve_fit
 from scipy.optimize import OptimizeWarning
+import argparse
 
 sensor_dim = (64, 64)
-plot_s = True  # Flag for plotting individual pixel data
 
 
-def plot_scurve(file, tdac, n):
+def process_scurve(file, tdac, n, do_plot):
     # Define the sigmoidal function (logistic function)
     def sigmoid(x, L, x0, k, b):
         y = L / (1 + np.exp(-k * (x - x0))) + b
         return y
+
+    def gaussian(x, amplitude, mean, stddev):
+        return amplitude * np.exp(-((x - mean) / stddev) ** 2 / 2)
 
     def vt_from_s(y, L, x0, k, b):
         return -1 / k * np.log(L / (y - b) - 1) + x0
@@ -55,7 +58,7 @@ def plot_scurve(file, tdac, n):
         pixel_data.append(current_pixel.copy())
 
     vt50_map = np.zeros(sensor_dim)
-    if plot_s:
+    if do_plot:
         # Plot individual pixel data if enabled
         ax1 = plt.subplot(2, n, tdac + 1)
         ax1.set(title='TDAC ' + str(tdac))
@@ -65,13 +68,13 @@ def plot_scurve(file, tdac, n):
     for pixel in pixel_data:
         x_data = np.array(pixel['Voltage'])
         y_data = np.array(pixel['Hits'])
-        if plot_s:
+        if do_plot:
             ax1.scatter(x_data, y_data, marker='.', label=f"Pixel {pixel['Pixel']}")
         try:
             p0 = [max(y_data), np.median(x_data), 1, min(y_data)]  # Initial guess for curve fitting
             popt, _ = curve_fit(sigmoid, x_data, y_data, p0, maxfev=100000)
             x_fit = np.arange(min(x_data), max(x_data), (max(x_data) - min(x_data)) / 200)  # Generate points for fit plot
-            if plot_s:
+            if do_plot:
                 ax1.plot(x_fit, sigmoid(x_fit, *popt), label='fit')
             vt50_map[pixel["Index"][0], pixel['Index'][1]] = vt_from_s(50, *popt)
         except (RuntimeWarning, RuntimeError) as e:
@@ -87,44 +90,56 @@ def plot_scurve(file, tdac, n):
         print('no valid points in file ', file)
         return
     counts, bins = np.histogram(no_nan)
-    mids = 0.5 * (bins[1:] + bins[:-1])
-    mean = np.average(mids, weights=counts)
-    var = np.average((mids - mean) ** 2, weights=counts)
-    std_dev = np.sqrt(var)
-    std_err = std_dev / np.sqrt(sum(counts))
-    if plot_s:
+
+    bins = bins[1:]
+    counts = counts[1:]  # 0th bin contains fit fails, or not scanned pixels
+
+    # Calculate bin centers
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+
+    # Use curve_fit to fit the Gaussian function to the histogram data
+    initial_guess = [1.0, np.mean(no_nan), np.std(no_nan)]
+    params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
+    amplitude, mean, stddev = params
+    stddev = abs(stddev)
+    std_err = stddev / np.sqrt(sum(counts))
+
+    if do_plot:
+        x_fit = np.linspace(min(x_data), max(x_data), 1000)
         ax3 = plt.subplot(2, n, tdac + n + 1)
         ax3.stairs(counts, bins)
-        ax3.text(.5, max(counts), f'$\mu = $ {mean:.3f}\n$\sigma = $ {std_dev:.2f}')
+        ax3.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
+        ax3.hist(bins[:-1], bins, weights=counts)
+
+        # box with statistics
+        props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
+        stats = f'$\\mu$= {mean * 1000.0:.1f}mV\n$\\sigma$={stddev * 1000.0:.1f}mV'
+        ax3.text(0.55, 0.95, stats, transform=ax3.transAxes, fontsize=8,
+                 verticalalignment='top', bbox=props)
         ax3.grid()
-        plt.xlim(0.1, 0.9)
+        plt.xlim(min(x_data), max(x_data))
     return mean, std_err
 
 
-def deduce_data_type(file):
-    # Deduce data type from the file
-    with open(file, 'r') as f:
-        first_line = f.readline()
-        match = re.search(r'type = (\w+)', first_line)
-        if match:
-            return match.group(1)
-        else:
-            print('unable to deduce data type from line ', first_line)
-            return None
-
-
 if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description='Script to process and plot S-curves from evalTdac method.')
+    parser.add_argument('directory', help='Directory containing data files')
+    parser.add_argument('-s', '--scurves', action='store_true', help='Plot full scurves for current folder')
+    args = parser.parse_args()
+
     # Process multiple data files
-    data_files = glob(sys.argv[1] + '*.txt')
+    data_files = glob(args.directory + '*.txt')
+    
     warnings.simplefilter("error", OptimizeWarning)
 
     statistic = []
     for file in data_files:
         tdac = int(re.search(r'tdac_(\d+)', file).group(1))
-        mean, err = plot_scurve(file, tdac, len(data_files))
+        mean, err = process_scurve(file, tdac, len(data_files), args.scurves)
         statistic.append([tdac, mean, err])
 
-    if not plot_s:
+    if not args.scurves:
         # Plot average threshold values for different TDAC values
         statistic = np.sort(statistic, 0)
         x = [row[0] for row in statistic]
