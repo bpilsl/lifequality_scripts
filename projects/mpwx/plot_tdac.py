@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
     # Process multiple data files
     data_files = glob(args.directory + '*.txt')
-    
+
     warnings.simplefilter("error", OptimizeWarning)
 
     statistic = []
@@ -143,7 +143,7 @@ if __name__ == '__main__':
         # Plot average threshold values for different TDAC values
         statistic = np.sort(statistic, 0)
         x = [row[0] for row in statistic]
-        y = [row[1] for row in statistic]
+        y = np.array([row[1] for row in statistic]) * 1e3  # convert to mV
         err = [row[2] for row in statistic]
         k, d = np.polyfit(x, y, 1)
         if len(sys.argv) > 2:
@@ -154,10 +154,10 @@ if __name__ == '__main__':
         ax = plt.subplot(111)
         ax.errorbar(x, y, yerr=err, fmt='o', markersize=8, capsize=20, label='Data')
         fit_data = np.array(x) * k + d
-        ax.plot(x, fit_data, linestyle='dashed', label=f'Fit: {k:.4f} * x + {d:.2f}')
+        ax.plot(x, fit_data, linestyle='dashed', label=f'Fit: {k:.3f} * x + {d:.2f}')
         ax.legend(loc='upper left')
         ax.set_xlabel('TDAC')
-        ax.set_ylabel('$\mu$ [V]')
+        ax.set_ylabel('$\mu$ [mV]')
         ax.set_title('Avg. threshold for different TDAC values')
 
     plt.show()
