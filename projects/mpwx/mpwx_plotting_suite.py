@@ -148,13 +148,14 @@ def plot_scurve(file):
     initial_guess = [1.0, np.mean(no_nan), np.std(no_nan)]
     params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
     amplitude, mean, stddev = params
-    x_fit = np.linspace(min(no_nan), max(no_nan), 1000)
+    stddev = abs(stddev)
+    x_fit = np.linspace(min(x_data), max(x_data), 1000)
     ax3.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
     ax3.hist(bins[:-1], bins, weights=counts)
 
     # box with statistics
     props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
-    stats = f'$\\mu$= {mean * 1000.0:.1f}mV\n$\\sigma$={stddev * 1000.0:.1f}mV'
+    stats = f'$\\mu$ = {mean * 1000.0:.1f}mV\n$\\sigma$ = {stddev * 1000.0:.1f}mV'
     ax3.text(0.75, 0.95, stats, transform=ax3.transAxes, fontsize=15,
              verticalalignment='top', bbox=props)
 

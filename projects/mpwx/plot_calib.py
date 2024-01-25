@@ -40,9 +40,14 @@ def s_curve_stats(file, output_dict):
                 col = int(col)
                 current_pixel['Index'] = (row, col)
             elif line.startswith('0.') or line.startswith('1.'):
-                voltage, hits, _ = line.split()
-                current_pixel['Voltage'].append(float(voltage))
-                current_pixel['Hits'].append(int(hits))
+                # Extract voltage and hits information for each pixel
+                try:
+                    voltage, hits, _ = line.split()
+                    current_pixel['Voltage'].append(float(voltage))
+                    current_pixel['Hits'].append(int(hits))
+                except:
+                    print('broken line ', line)
+                    continue
 
     # Append the last pixel's data
     if current_pixel:
@@ -94,10 +99,13 @@ def gaussian(x, amplitude, mean, stddev):
 
 
 def v_to_q(v):
-    return v * 15.568e3
+    # Q = C * U
+    # with C ~ 2.8fF and electron charge
+    # a charge of 16.56 ke-/V is evaluated
+    return v * 16.568e3
 
 def q_to_v(q):
-    return q / 15.568e3
+    return q / 16.568e3
 
 
 data = {'tdac': [], 'vt50': []}
@@ -141,12 +149,13 @@ bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 initial_guess = [1.0, np.mean(df['vt50']), np.std(df['vt50'])]
 params, covariance = curve_fit(gaussian, bin_centers, hist, p0=initial_guess)
 amplitude, mean, stddev = params
+stddev = abs(stddev)
 x_fit = np.linspace(min(df['vt50']), max(df['vt50']), 1000)
 ax.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
 
 # box with statistics
 props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-stats = (f'$\\mu$= {mean * 1000.0:.1f}mV $\\approx$ {v_to_q(mean):.0f} $e^-$ \n$\\sigma$={stddev * 1000.0:.1f}mV '
+stats = (f'$\\mu$ = {mean * 1000.0:.1f}mV $\\approx$ {v_to_q(mean):.0f} $e^-$ \n$\\sigma$ = {stddev * 1000.0:.1f}mV '
          f'$\\approx$ {v_to_q(stddev):.0f} $e^-$')
 
 ax.text(0.75, 0.95, stats, transform=ax.transAxes, fontsize=14,
