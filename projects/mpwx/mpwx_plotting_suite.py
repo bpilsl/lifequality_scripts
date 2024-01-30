@@ -1,12 +1,14 @@
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 import argparse
 import re
 import sys
 import warnings
 from scipy.optimize import curve_fit
 from scipy.optimize import OptimizeWarning
+
 
 sensor_dim = (64, 64)
 
@@ -68,7 +70,7 @@ def plot_scurve(file):
     def gaussian(x, amplitude, mean, stddev):
         return amplitude * np.exp(-((x - mean) / stddev) ** 2 / 2)
 
-    def vt_from_s(y, L, x0, k, b):
+    def v_from_s(y, L, x0, k, b):
         return - 1 / k * np.log(L / (y - b) - 1) + x0
 
     pixel_data = []
@@ -103,15 +105,16 @@ def plot_scurve(file):
         pixel_data.append(current_pixel.copy())
 
     vt50_map = np.zeros(sensor_dim)
-    ax1 = plt.subplot(221)
-    # plt.xlabel('Injection Voltage [V]')
-    # plt.ylabel('Number of Hits')
-    ax1.set(title='Number of Hits vs. Injection Voltage for Pixels', xlabel='Injection Voltage [V]',
+    noise_map = np.zeros(sensor_dim)
+    fig = plt.figure()
+    gs = GridSpec(2, 3, figure=fig)
+    ax1 = fig.add_subplot(gs[:, 0])
+    ax1.set(title='Number of Hits vs. Injection Voltage for Pixels', xlabel='Injection Voltage [mV]',
             ylabel='Number of Hits')
     # ax1.legend()
     ax1.grid(True)
     for pixel in pixel_data:
-        x_data = np.array(pixel['Voltage'])
+        x_data = np.array(pixel['Voltage']) * 1e3  ##convert to mV
         y_data = np.array(pixel['Hits'])
         ax1.scatter(x_data, y_data, marker='.', label=f"Pixel {pixel['Pixel']}")
         plt.xlim(min(x_data), max(x_data))
@@ -121,7 +124,9 @@ def plot_scurve(file):
             x_fit = np.arange(min(x_data), max(x_data), (max(x_data) - min(x_data)) / 200)  # generate points for plot
             # of fit
             ax1.plot(x_fit, sigmoid(x_fit, *popt), label='fit')
-            vt50_map[pixel["Index"][0], pixel['Index'][1]] = vt_from_s(50, *popt)
+            vt50_map[pixel["Index"][0], pixel['Index'][1]] = v_from_s(50, *popt)
+            noise_map[pixel["Index"][0], pixel['Index'][1]] = v_from_s(84, *popt) - v_from_s(16, *popt)
+            # print(pixel["Index"][0], pixel['Index'][1], noise_map[pixel["Index"][0], pixel['Index'][1]])
         except RuntimeWarning:
             pass
         except RuntimeError as rte:
@@ -129,12 +134,12 @@ def plot_scurve(file):
         except OptimizeWarning as ow:
             print('optimization failed for', pixel["Pixel"], ow)
 
-    ax2 = plt.subplot(222)
+    ax2 = fig.add_subplot(gs[0, 2])
     ax2.set(title='VT50 map', xlabel='Col', ylabel='Row')
     sns.heatmap(vt50_map)
     ax2.invert_yaxis()
-    ax3 = plt.subplot(223)
-    ax3.set(title='VT50 histogram', xlabel='VT50 [V]', ylabel='Counts')
+    ax3 = fig.add_subplot(gs[0, 1])
+    ax3.set(title='VT50 histogram', xlabel='VT50 [mV]', ylabel='Counts')
     no_nan = vt50_map.flatten()[~np.isnan(vt50_map.flatten())]
     counts, bins = np.histogram(no_nan, bins=100)
 
@@ -155,12 +160,47 @@ def plot_scurve(file):
 
     # box with statistics
     props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
-    stats = f'$\\mu$ = {mean * 1000.0:.1f}mV\n$\\sigma$ = {stddev * 1000.0:.1f}mV'
+    stats = f'$\\mu$ = {mean:.1f}mV\n$\\sigma$ = {stddev:.1f}mV'
     ax3.text(0.75, 0.95, stats, transform=ax3.transAxes, fontsize=15,
              verticalalignment='top', bbox=props)
 
     ax3.grid()
     plt.xlim(min(x_data), max(x_data))
+
+    ax4 = fig.add_subplot(gs[1, 2])
+    ax4.set(title='Noise map', xlabel='Col', ylabel='Row')
+    sns.heatmap(noise_map)
+    ax4.invert_yaxis()
+    ax5 = fig.add_subplot(gs[1, 1])
+    ax5.set(title='Noise histogram', xlabel='Noise [mV]', ylabel='Counts')
+
+    no_nan = noise_map.flatten()[~np.isnan(noise_map.flatten())]
+
+    counts, bins = np.histogram(no_nan, bins=100)
+
+    bins = bins[1:]
+    counts = counts[1:]  # 0th bin contains fit fails, or not scanned pixels
+    # Calculate bin centers
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+
+    initial_guess = [1.0, np.mean(no_nan), np.std(no_nan)]
+    params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
+    amplitude, mean, stddev = params
+    stddev = abs(stddev)
+    x_fit = np.linspace(0, 300, 1000)
+    ax5.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
+    ax5.hist(bins[:-1], bins, weights=counts)
+
+    # box with statistics
+    props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
+    stats = f'$\\mu$ = {mean:.1f}mV\n$\\sigma$ = {stddev:.1f}mV'
+    ax5.text(0.75, 0.95, stats, transform=ax5.transAxes, fontsize=15,
+             verticalalignment='top', bbox=props)
+
+    ax5.grid()
+
+
+
 
 
 def plot_spectrum(file):
