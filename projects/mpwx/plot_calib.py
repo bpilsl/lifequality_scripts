@@ -101,11 +101,11 @@ def gaussian(x, amplitude, mean, stddev):
 def v_to_q(v):
     # Q = C * U
     # with C ~ 2.8fF and electron charge
-    # a charge of 16.56 ke-/V is evaluated
-    return v * 16.568e3
+    # a charge of 16.56 ke-/mV is evaluated
+    return v * 16.568
 
 def q_to_v(q):
-    return q / 16.568e3
+    return q / 16.568
 
 
 data = {'tdac': [], 'vt50': []}
@@ -119,7 +119,7 @@ data['vt50'] = data['vt50'].flatten()
 
 # filter not scanned pixels
 data['tdac'] = data['tdac'][data['vt50'] > 0]
-data['vt50'] = data['vt50'][data['vt50'] > 0]
+data['vt50'] = data['vt50'][data['vt50'] > 0] * 1000  #convert to mV
 df = pd.DataFrame(data)
 
 tdac_seperated = []
@@ -155,7 +155,7 @@ ax.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', colo
 
 # box with statistics
 props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-stats = (f'$\\mu$ = {mean * 1000.0:.1f}mV $\\approx$ {v_to_q(mean):.0f} $e^-$ \n$\\sigma$ = {stddev * 1000.0:.1f}mV '
+stats = (f'$\\mu$ = {mean :.1f}mV $\\approx$ {v_to_q(mean):.0f} $e^-$ \n$\\sigma$ = {stddev:.1f}mV '
          f'$\\approx$ {v_to_q(stddev):.0f} $e^-$')
 
 ax.text(0.75, 0.95, stats, transform=ax.transAxes, fontsize=14,
@@ -164,7 +164,7 @@ ax.text(0.75, 0.95, stats, transform=ax.transAxes, fontsize=14,
 
 secax = ax.secondary_xaxis('top', functions=(v_to_q, q_to_v))
 secax.set_xlabel('Threshold ($e^-$)')
-plt.xlabel('VT50 [V]')
+plt.xlabel('VT50 [mV]')
 plt.ylabel('Counts')
 plt.title('VT50 grouped by TrimDAC')
 plt.legend()

@@ -12,11 +12,14 @@ sensor_dim = (64, 64)
 plot_s = False  # Flag for plotting individual pixel data
 
 
-def plot_scurve(file, thr, nFiles, iFile):
+def s_curve_stats(file, thr, nFiles, iFile):
     # Define the sigmoidal function (logistic function)
     def sigmoid(x, L, x0, k, b):
         y = L / (1 + np.exp(-k * (x - x0))) + b
         return y
+
+    def gaussian(x, amplitude, mean, stddev):
+        return amplitude * np.exp(-((x - mean) / stddev) ** 2 / 2)
 
     def vt_from_s(y, L, x0, k, b):
         return -1 / k * np.log(L / (y - b) - 1) + x0
@@ -58,7 +61,7 @@ def plot_scurve(file, thr, nFiles, iFile):
     if plot_s:
         # Plot individual pixel data if enabled
         ax1 = plt.subplot(2, nFiles, iFile + 1)
-        ax1.set(title=f'Thr =  {thr:.2f}V')
+        ax1.set(title=f'Thr =  {thr * 1e3:.1f}mV')
         ax1.grid(True)
 
     # Process each pixel's data
@@ -73,6 +76,7 @@ def plot_scurve(file, thr, nFiles, iFile):
             x_fit = np.arange(min(x_data), max(x_data), (max(x_data) - min(x_data)) / 200)  # Generate points for fit plot
             if plot_s:
                 ax1.plot(x_fit, sigmoid(x_fit, *popt), label='fit')
+                plt.xlim(min(x_data), max(x_data))
             vt50_map[pixel["Index"][0], pixel['Index'][1]] = vt_from_s(50, *popt)
         except (RuntimeWarning, RuntimeError) as e:
             print(e)
@@ -87,17 +91,33 @@ def plot_scurve(file, thr, nFiles, iFile):
         print('no valid points in file ', file)
         return
     counts, bins = np.histogram(no_nan)
-    mids = 0.5 * (bins[1:] + bins[:-1])
-    mean = np.average(mids, weights=counts)
-    var = np.average((mids - mean) ** 2, weights=counts)
-    std_dev = np.sqrt(var)
-    std_err = std_dev / np.sqrt(sum(counts))
+
+    bins = bins[1:]
+    counts = counts[1:]  # 0th bin contains fit fails, or not scanned pixels
+
+    # Calculate bin centers
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+
+    # Use curve_fit to fit the Gaussian function to the histogram data
+    initial_guess = [1.0, np.mean(no_nan), np.std(no_nan)]
+    params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
+    amplitude, mean, stddev = params
+    stddev = abs(stddev)
+    std_err = stddev / np.sqrt(sum(counts))
     if plot_s:
         ax3 = plt.subplot(2, nFiles, iFile + nFiles + 1)
         ax3.stairs(counts, bins)
-        ax3.text(.5, max(counts) - 10, f'$\mu = $ {mean:.3f}\n$\sigma = $ {std_dev:.3f}')
+        x_fit = np.linspace(min(x_data), max(x_data), 1000)
+        ax3.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
+        ax3.hist(bins[:-1], bins, weights=counts)
+
+        # box with statistics
+        props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
+        stats = f'$\\mu$= {mean * 1000.0:.1f}mV\n$\\sigma$={stddev * 1000.0:.1f}mV'
+        ax3.text(0.55, 0.95, stats, transform=ax3.transAxes, fontsize=8,
+                 verticalalignment='top', bbox=props)
         ax3.grid()
-        plt.xlim(0.1, 0.9)
+        plt.xlim(min(x_data), max(x_data))
     return mean, std_err
 
 
@@ -130,19 +150,21 @@ if __name__ == '__main__':
     statistic = []
     for i, file in enumerate(data_files):
         thr = float(re.search(r'thr_(\d+\.\d+)', file).group(1)) - .9
-        mean, err = plot_scurve(file, thr, len(data_files), i)
+        mean, err = s_curve_stats(file, thr, len(data_files), i)
         statistic.append([thr, mean, err])
 
     if not plot_s:
         # Plot average threshold values for different TDAC values
         statistic = np.sort(statistic, 0)
         x = np.array([row[0] for row in statistic])
+        x = x * 1e3  # convert to mV
         q = v_to_q(x)
         y = np.array([row[1] for row in statistic])
+        y = y * 1e3  # convert to mV
         err = [row[2] for row in statistic]
         kV, dV = np.polyfit(x, y, 1)
         kQ, dQ = np.polyfit(q, y, 1)
-        print(f'Fit V vs. V {kV:.4f} * x(V) + {dV:.4f}\nFit Q vs. V {kQ:.4f} * x(Q) + {dQ:.4f}')
+        print(f'Fit V vs. V {kV:.4f} * x(mV) + {dV:.4f}\nFit Q vs. V {kQ:.4f} * x(Q) + {dQ:.4f}')
         if len(sys.argv) > 2:
             with open(sys.argv[2], 'w') as f:
                 for i in range(len(x)):
@@ -153,13 +175,13 @@ if __name__ == '__main__':
         fit_data = np.array(x) * kV + dV
         ax.plot(x, fit_data, linestyle='dashed', label=f'Fit: {kV:.4f} * x + {dV:.2f}')
         ax.legend(loc='upper left')
-        ax.set_xlabel('Threshold [V]')
-        ax.set_ylabel('$\mu$ [V]')
+        ax.set_xlabel('Threshold [mV]')
+        ax.set_ylabel('$VT50_\mu$ [mV]')
         ax.set_title('Avg. VT50 for different threshold voltages')
         # secax_x = ax.secondary_xaxis('top', functions=(v_to_q, q_to_v))
         # secax_x.set_xlabel('Threshold ($ke^-$)')
         secax_y = ax.secondary_yaxis('right', functions=(v_to_q, q_to_v))
-        secax_y.set_ylabel(r'$\mu$ ($ke^-$)')
+        secax_y.set_ylabel(r'$VT50_\mu$ ($ke^-$)')
         ax.grid()
 
     plt.show()
