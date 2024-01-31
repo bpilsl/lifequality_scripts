@@ -110,7 +110,6 @@ def s_curve_stats(file, thr, nFiles, iFile):
         ax3.stairs(counts, bins)
         x_fit = np.linspace(min(x_data), max(x_data), 1000)
         ax3.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
-        ax3.hist(bins[:-1], bins, weights=counts)
 
         # box with statistics
         props = dict(boxstyle='round', facecolor='wheat', alpha=.5)

@@ -109,7 +109,7 @@ def process_scurve(file, tdac, n, do_plot):
         ax3 = plt.subplot(2, n, tdac + n + 1)
         ax3.stairs(counts, bins)
         ax3.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
-        ax3.hist(bins[:-1], bins, weights=counts)
+        # ax3.hist(bins[:-1], bins, weights=counts)
 
         # box with statistics
         props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
