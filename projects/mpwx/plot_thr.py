@@ -121,17 +121,6 @@ def s_curve_stats(file, thr, nFiles, iFile):
     return mean, std_err
 
 
-def deduce_data_type(file):
-    # Deduce data type from the file
-    with open(file, 'r') as f:
-        first_line = f.readline()
-        match = re.search(r'type = (\w+)', first_line)
-        if match:
-            return match.group(1)
-        else:
-            print('unable to deduce data type from line ', first_line)
-            return None
-
 def v_to_q(x):
     # Q = C * U
     # with C ~ 2.8fF and electron charge
@@ -149,7 +138,7 @@ if __name__ == '__main__':
 
     statistic = []
     for i, file in enumerate(data_files):
-        thr = float(re.search(r'thr_(\d+\.\d+)', file).group(1)) - .9
+        thr = float(re.search(r'thr_(\d+\.*\d*)', file).group(1)) - .9
         mean, err = s_curve_stats(file, thr, len(data_files), i)
         statistic.append([thr, mean, err])
 
@@ -171,17 +160,18 @@ if __name__ == '__main__':
                     f.write(f'{x[i]} {y[i]} {err[i]}\n')
 
         ax = plt.subplot(111)
+        print(err)
         ax.errorbar(x, y, yerr=err, fmt='o', markersize=8, capsize=20, label='Data')
         fit_data = np.array(x) * kV + dV
         ax.plot(x, fit_data, linestyle='dashed', label=f'Fit: {kV:.4f} * x + {dV:.2f}')
         ax.legend(loc='upper left')
         ax.set_xlabel('Threshold [mV]')
-        ax.set_ylabel('$VT50_\mu$ [mV]')
+        ax.set_ylabel(r'$\mu(VT50)$ [mV]')
         ax.set_title('Avg. VT50 for different threshold voltages')
         # secax_x = ax.secondary_xaxis('top', functions=(v_to_q, q_to_v))
         # secax_x.set_xlabel('Threshold ($ke^-$)')
         secax_y = ax.secondary_yaxis('right', functions=(v_to_q, q_to_v))
-        secax_y.set_ylabel(r'$VT50_\mu$ ($ke^-$)')
+        secax_y.set_ylabel(r'$\mu(VT50)$ [$e^-$]')
         ax.grid()
 
     plt.show()
