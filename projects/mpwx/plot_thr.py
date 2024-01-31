@@ -9,7 +9,7 @@ from scipy.optimize import curve_fit
 from scipy.optimize import OptimizeWarning
 
 sensor_dim = (64, 64)
-plot_s = True  # Flag for plotting individual pixel data
+plot_s = False  # Flag for plotting individual pixel data
 
 
 def s_curve_stats(file, thr, nFiles, iFile):
@@ -138,19 +138,20 @@ if __name__ == '__main__':
 
     statistic = []
     for i, file in enumerate(data_files):
-        thr = float(re.search(r'thr_(\d+\.*\d*)', file).group(1)) - .9
+        thr = (float(re.search(r'thr_(\d+\.*\d*)', file).group(1)) - .9) * 1e3  # convert to mV
         mean, err = s_curve_stats(file, thr, len(data_files), i)
         statistic.append([thr, mean, err])
 
     if not plot_s:
         # Plot average threshold values for different TDAC values
-        statistic = np.sort(statistic, 0)
-        x = np.array([row[0] for row in statistic])
-        x = x * 1e3  # convert to mV
+        statistic = np.array(statistic)
+        statistic = statistic[statistic[:, 0].argsort()]  # sort by thr values
+
+        x = statistic[:, 0]
         q = v_to_q(x)
-        y = np.array([row[1] for row in statistic])
-        y = y * 1e3  # convert to mV
-        err = [row[2] for row in statistic]
+        y = statistic[:, 1]
+        err = statistic[:, 2]
+
         kV, dV = np.polyfit(x, y, 1)
         kQ, dQ = np.polyfit(q, y, 1)
         print(f'Fit V vs. V {kV:.4f} * x(mV) + {dV:.4f}\nFit Q vs. V {kQ:.4f} * x(Q) + {dQ:.4f}')
@@ -160,9 +161,8 @@ if __name__ == '__main__':
                     f.write(f'{x[i]} {y[i]} {err[i]}\n')
 
         ax = plt.subplot(111)
-        print(err)
         ax.errorbar(x, y, yerr=err, fmt='o', markersize=8, capsize=20, label='Data')
-        fit_data = np.array(x) * kV + dV
+        fit_data = x * kV + dV
         ax.plot(x, fit_data, linestyle='dashed', label=f'Fit: {kV:.4f} * x + {dV:.2f}')
         ax.legend(loc='upper left')
         ax.set_xlabel('Threshold [mV]')
