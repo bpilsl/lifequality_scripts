@@ -9,7 +9,7 @@ from scipy.optimize import curve_fit
 from scipy.optimize import OptimizeWarning
 
 sensor_dim = (64, 64)
-plot_s = False  # Flag for plotting individual pixel data
+plot_s = True  # Flag for plotting individual pixel data
 
 
 def s_curve_stats(file, thr, nFiles, iFile):
@@ -66,7 +66,7 @@ def s_curve_stats(file, thr, nFiles, iFile):
 
     # Process each pixel's data
     for pixel in pixel_data:
-        x_data = np.array(pixel['Voltage'])
+        x_data = np.array(pixel['Voltage']) * 1e3  # convert to mV
         y_data = np.array(pixel['Hits'])
         if plot_s:
             ax1.scatter(x_data, y_data, marker='.', label=f"Pixel {pixel['Pixel']}")
@@ -86,11 +86,12 @@ def s_curve_stats(file, thr, nFiles, iFile):
 
     # Compute statistics for threshold values
     no_zeros = (vt50_map[vt50_map != 0]).flatten()
-    no_nan = no_zeros[~np.isnan(no_zeros)]
+    # no_nan = no_zeros[~np.isnan(no_zeros)]
+    no_nan = vt50_map.flatten()[~np.isnan(vt50_map.flatten())]
     if len(no_zeros) == 0:
         print('no valid points in file ', file)
         return
-    counts, bins = np.histogram(no_nan)
+    counts, bins = np.histogram(no_nan, bins=100)
 
     bins = bins[1:]
     counts = counts[1:]  # 0th bin contains fit fails, or not scanned pixels
@@ -113,7 +114,7 @@ def s_curve_stats(file, thr, nFiles, iFile):
 
         # box with statistics
         props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
-        stats = f'$\\mu$= {mean * 1000.0:.1f}mV\n$\\sigma$={stddev * 1000.0:.1f}mV'
+        stats = f'$\\mu$= {mean:.1f}mV\n$\\sigma$={stddev:.1f}mV'
         ax3.text(0.55, 0.95, stats, transform=ax3.transAxes, fontsize=8,
                  verticalalignment='top', bbox=props)
         ax3.grid()
