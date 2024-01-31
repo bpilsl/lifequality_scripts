@@ -61,7 +61,7 @@ def s_curve_stats(file, thr, nFiles, iFile):
     if plot_s:
         # Plot individual pixel data if enabled
         ax1 = plt.subplot(2, nFiles, iFile + 1)
-        ax1.set(title=f'Thr =  {thr * 1e3:.1f}mV')
+        ax1.set(title=f'Thr =  {thr:.1f}mV')
         ax1.grid(True)
 
     # Process each pixel's data
