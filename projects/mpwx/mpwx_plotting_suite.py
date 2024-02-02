@@ -121,14 +121,14 @@ def plot_scurve(file):
         try:
             p0 = [max(y_data), np.median(x_data), 1, min(y_data)]  # this is a mandatory initial guess
             popt, _ = curve_fit(sigmoid, x_data, y_data, p0, maxfev=100000)
-            x_fit = np.arange(min(x_data), max(x_data), (max(x_data) - min(x_data)) / 200)  # generate points for plot
+            x_fit = np.linspace(min(x_data), max(x_data), 200)  # generate points for plot
             # of fit
             ax1.plot(x_fit, sigmoid(x_fit, *popt), label='fit')
             vt50_map[pixel["Index"][0], pixel['Index'][1]] = v_from_s(50, *popt)
             noise_map[pixel["Index"][0], pixel['Index'][1]] = v_from_s(84, *popt) - v_from_s(16, *popt)
             # print(pixel["Index"][0], pixel['Index'][1], noise_map[pixel["Index"][0], pixel['Index'][1]])
-        except RuntimeWarning:
-            pass
+        except RuntimeWarning as rtw:
+            print(rtw)
         except RuntimeError as rte:
             print(rte)
         except OptimizeWarning as ow:
@@ -149,22 +149,28 @@ def plot_scurve(file):
     # Calculate bin centers
     bin_centers = (bins[:-1] + bins[1:]) / 2
 
-    # Use curve_fit to fit the Gaussian function to the histogram data
-    initial_guess = [1.0, np.mean(no_nan), np.std(no_nan)]
-    params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
-    amplitude, mean, stddev = params
-    stddev = abs(stddev)
-    x_fit = np.linspace(min(x_data), max(x_data), 1000)
-    ax3.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
     ax3.hist(bins[:-1], bins, weights=counts)
 
-    # box with statistics
-    props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
-    stats = f'$\\mu$ = {mean:.1f}mV\n$\\sigma$ = {stddev:.1f}mV'
-    ax3.text(0.75, 0.95, stats, transform=ax3.transAxes, fontsize=15,
-             verticalalignment='top', bbox=props)
+    try:
+        # Use curve_fit to fit the Gaussian function to the histogram data
+        initial_guess = [1.0, np.mean(no_nan), np.std(no_nan)]
+        params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
+        amplitude, mean, stddev = params
+        stddev = abs(stddev)
+        x_fit = np.linspace(min(x_data), max(x_data), 1000)
+        ax3.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
 
-    ax3.grid()
+        # box with statistics
+        props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
+        stats = f'$\\mu$ = {mean:.1f}mV\n$\\sigma$ = {stddev:.1f}mV'
+        ax3.text(0.75, 0.95, stats, transform=ax3.transAxes, fontsize=15,
+                 verticalalignment='top', bbox=props)
+
+        ax3.grid()
+    except Exception as ex:
+        print('error fitting gaussian to VT50: ', ex)
+
+
     plt.xlim(min(x_data), max(x_data))
 
     ax4 = fig.add_subplot(gs[1, 2])
@@ -183,19 +189,22 @@ def plot_scurve(file):
     # Calculate bin centers
     bin_centers = (bins[:-1] + bins[1:]) / 2
 
-    initial_guess = [1.0, np.mean(no_nan), np.std(no_nan)]
-    params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
-    amplitude, mean, stddev = params
-    stddev = abs(stddev)
-    x_fit = np.linspace(0, 300, 1000)
-    ax5.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
     ax5.hist(bins[:-1], bins, weights=counts)
+    try:
+        initial_guess = [1.0, np.mean(no_nan), np.std(no_nan)]
+        params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
+        amplitude, mean, stddev = params
+        stddev = abs(stddev)
+        x_fit = np.linspace(0, 300, 1000)
+        ax5.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
 
-    # box with statistics
-    props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
-    stats = f'$\\mu$ = {mean:.1f}mV\n$\\sigma$ = {stddev:.1f}mV'
-    ax5.text(0.75, 0.95, stats, transform=ax5.transAxes, fontsize=15,
-             verticalalignment='top', bbox=props)
+        # box with statistics
+        props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
+        stats = f'$\\mu$ = {mean:.1f}mV\n$\\sigma$ = {stddev:.1f}mV'
+        ax5.text(0.75, 0.95, stats, transform=ax5.transAxes, fontsize=15,
+                 verticalalignment='top', bbox=props)
+    except Exception as ex:
+        print('error fitting gaussian to noise: ', ex)
 
     ax5.grid()
 
