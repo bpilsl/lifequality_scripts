@@ -126,7 +126,6 @@ def plot_scurve(file):
             ax1.plot(x_fit, sigmoid(x_fit, *popt), label='fit')
             vt50_map[pixel["Index"][0], pixel['Index'][1]] = v_from_s(50, *popt)
             noise_map[pixel["Index"][0], pixel['Index'][1]] = v_from_s(84, *popt) - v_from_s(16, *popt)
-            # print(pixel["Index"][0], pixel['Index'][1], noise_map[pixel["Index"][0], pixel['Index'][1]])
         except RuntimeWarning as rtw:
             print(rtw)
         except RuntimeError as rte:
@@ -141,7 +140,7 @@ def plot_scurve(file):
     ax3 = fig.add_subplot(gs[0, 1])
     ax3.set(title='VT50 histogram', xlabel='VT50 [mV]', ylabel='Counts')
     no_nan = vt50_map.flatten()[~np.isnan(vt50_map.flatten())]
-    counts, bins = np.histogram(no_nan, bins=200)
+    counts, bins = np.histogram(no_nan, bins=100)
 
     bins = bins[1:]
     counts = counts[1:]  # 0th bin contains fit fails, or not scanned pixels
@@ -182,7 +181,7 @@ def plot_scurve(file):
 
     no_nan = noise_map.flatten()[~np.isnan(noise_map.flatten())]
 
-    counts, bins = np.histogram(no_nan, bins=200)
+    counts, bins = np.histogram(no_nan, bins=100)
 
     bins = bins[1:]
     counts = counts[1:]  # 0th bin contains fit fails, or not scanned pixels
