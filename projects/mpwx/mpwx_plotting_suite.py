@@ -208,28 +208,51 @@ def plot_scurve(file):
     ax5.grid()
 
 
-
-
-
 def plot_spectrum(file):
-    with open(file, 'r') as f:
-        # counts = []
+
+    meanMap = np.zeros((64, 64))
+    accumulated_hist = np.zeros(256)
+    with open(file) as f:
         for line in f:
-            if line.startswith('#') or len(line) < 256:
+            if line.startswith('#'):
                 continue
-            counts = (np.array(line.split())).astype(int)
-        bins = np.arange(0, 257)
+            match = re.match(r'(\d+):(\d+)(.+)', line)
+            if not match:
+                continue
+            row = int(match.group(1))
+            col = int(match.group(2))
+            data = match.group(3)
 
-        mids = 0.5 * (bins[1:] + bins[:-1])
-        mean = np.average(mids, weights=counts)
-        var = np.average((mids - mean) ** 2, weights=counts)
-        std_dev = np.sqrt(var)
-        ax = plt.subplot(111)
-        ax.set(xlabel='ToT [50ns]', ylabel='Counts', title='Spectrum')
+            counts = np.array(data.split(), dtype=int)
+            accumulated_hist += counts
+            bins = np.arange(256)
 
-        ax.text(200, 14, f'Avg: {mean:.2f}\nStdDev: {std_dev:.2f}')
+            if counts[100:256].any():
+                print(f'big ToT for pixel {row}:{col}')
 
-        ax.stairs(counts, bins)
+            mean = np.average(bins, weights=counts)
+            var = np.average((bins - mean) ** 2, weights=counts)
+            std_dev = np.sqrt(var)
+            meanMap[row][col] = mean
+
+    non_zero_indices = accumulated_hist > 0
+    bins = np.arange(256)
+    non_zero_bins = bins[non_zero_indices]
+    non_zero_counts = accumulated_hist[non_zero_indices]
+
+    mean = np.average(bins, weights=accumulated_hist)
+    var = np.average((bins - mean) ** 2, weights=accumulated_hist)
+    std_dev = np.sqrt(var)
+    ax1 = plt.subplot(121)
+    ax1.bar(non_zero_bins, non_zero_counts, width=1.0, align='edge', edgecolor='black')
+    print(max(non_zero_bins) * .8, max(non_zero_counts) * .8)
+    ax1.text(max(non_zero_bins) * .9, max(non_zero_counts) * .8, f'$\mu = ${mean:.2f}\n$\sigma = ${std_dev:.2f}')
+
+    ax2 = plt.subplot(122)
+    sns.heatmap(meanMap, ax=ax2)
+    ax2.invert_yaxis()
+
+
 
 
 def deduce_data_type(file):
