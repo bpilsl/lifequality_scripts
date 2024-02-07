@@ -152,7 +152,7 @@ def plot_scurve(file):
 
     try:
         # Use curve_fit to fit the Gaussian function to the histogram data
-        initial_guess = [1.0, np.mean(no_nan), np.std(no_nan)]
+        initial_guess = [1.0, max(no_nan), np.std(no_nan)]
         params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
         amplitude, mean, stddev = params
         stddev = abs(stddev)
