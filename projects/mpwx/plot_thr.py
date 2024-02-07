@@ -100,7 +100,7 @@ def s_curve_stats(file, thr, nFiles, iFile):
     bin_centers = (bins[:-1] + bins[1:]) / 2
 
     # Use curve_fit to fit the Gaussian function to the histogram data
-    initial_guess = [1.0, np.mean(no_nan), np.std(no_nan)]
+    initial_guess = [1.0, max(no_nan), np.std(no_nan)]
     params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
     amplitude, mean, stddev = params
     stddev = abs(stddev)
