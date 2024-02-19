@@ -243,14 +243,32 @@ def plot_spectrum(file):
     mean = np.average(bins, weights=accumulated_hist)
     var = np.average((bins - mean) ** 2, weights=accumulated_hist)
     std_dev = np.sqrt(var)
-    ax1 = plt.subplot(121)
+    multiplePixel = len(meanMap[meanMap > 0]) > 1
+    if multiplePixel:
+        ax1 = plt.subplot(121)
+    else:
+        ax1 = plt.subplot()
     ax1.bar(non_zero_bins, non_zero_counts, width=1.0, align='edge', edgecolor='black')
-    print(max(non_zero_bins) * .8, max(non_zero_counts) * .8)
-    ax1.text(max(non_zero_bins) * .9, max(non_zero_counts) * .8, f'$\mu = ${mean:.2f}\n$\sigma = ${std_dev:.2f}')
 
-    ax2 = plt.subplot(122)
-    sns.heatmap(meanMap, ax=ax2)
-    ax2.invert_yaxis()
+    props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
+    stats = f'$\\mu$ = {mean:.1f}LSB\n$\\sigma$ = {std_dev:.1f}LSB'
+    ax1.text(0.75, 0.95, stats, transform=ax1.transAxes, fontsize=15,
+             verticalalignment='top', bbox=props)
+
+    ax1.set_title('Accumulated ToT Histogram', fontsize=30)
+
+    ax1.set_xlabel('ToT (LSB)', fontsize=40)
+    ax1.set_ylabel('Counts', fontsize=40)
+    plt.xticks(fontsize=30)
+    plt.yticks(fontsize=30)
+    plt.xlim(0, 250)
+    # plt.ylim(0, 5)
+
+    if multiplePixel:
+        ax2 = plt.subplot(122)
+        sns.heatmap(meanMap, ax=ax2)
+        ax2.invert_yaxis()
+        ax2.set_title('$\mu_{TOT}$ Map')
 
 
 
@@ -293,3 +311,4 @@ if __name__ == '__main__':
             plt.savefig(f'{save_path}_{i}.png')
         else:
             plt.show()
+

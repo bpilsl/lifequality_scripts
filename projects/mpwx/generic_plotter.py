@@ -27,15 +27,16 @@ if __name__ == '__main__':
     for i, file in enumerate(args.files):
         data_type = deduce_data_type(file)
         if data_type == 'hitmap':
-            pass
-            # plot_hitmap(file, False)
+            data = readHitmap(file)
+            plotHitmap(data)
         elif data_type == 'scurve':
             data = readScurveData(file)
             interpretScurve(data)
 
         elif data_type == 'tdac_map':
-            pass
-            # plot_hitmap(file, True)
+            data = readHitmap(file)
+            plotHitmap(data, plotHist=True)
+
         elif data_type == 'spectrum':
             pass
             # plot_spectrum(file)

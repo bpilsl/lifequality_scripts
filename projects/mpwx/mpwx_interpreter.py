@@ -1,6 +1,7 @@
 import pandas as pd
 import seaborn as sns
 import numpy as np
+import re
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from scipy.optimize import curve_fit
@@ -21,6 +22,8 @@ def gaussian(x, amplitude, mean, stddev):
 def inverseSigmoid(y, L, x0, k, b):
     return - 1 / k * np.log(L / (y - b) - 1) + x0
 
+def v_to_q(v):
+    return v * 2.8e-15 / 1.6e-19
 
 def interpretScurve(data, **kwargs):
     defaultKwargs = {'doPlot': True, 'figure': None, 'xAxisLabel': 'Injection Voltage [mV]', 'yAxisLabel': 'Hits',
@@ -102,8 +105,8 @@ def interpretScurve(data, **kwargs):
 
             # box with statistics
             props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
-            stats = f'$\\mu$ = {mean:.1f}mV\n$\\sigma$ = {stddev:.1f}mV'
-            ax3.text(0.75, 0.95, stats, transform=ax3.transAxes, fontsize=15,
+            stats = f'$\\mu = {mean:.1f}mV \\approx {v_to_q(mean * 1e-3):.0f} e^-$\n$\\sigma = {stddev:.1f}mV \\approx {v_to_q(stddev * 1e-3):.0f} e^-$'
+            ax3.text(0.65, 0.95, stats, transform=ax3.transAxes, fontsize=15,
                      verticalalignment='top', bbox=props)
             ax3.grid()
             plt.xlim(min(x_data), max(x_data))
@@ -178,6 +181,118 @@ def readScurveData(file):
                     continue
 
     return pd.DataFrame(pixel_data)
+
+
+def readHitmap(file):
+    hitmap = np.zeros(sensor_dim)
+
+    with open(file, 'r') as f:
+        row = 0
+        for line in f:
+            if line.startswith('#') or len(line) == 0 or len(line.strip()) == 0:
+                # comment or empty or just whitespace line
+                continue
+
+            splitted = line.split(' ')
+            if len(splitted) != sensor_dim[0] + 1:
+                print('invalid line with ', len(splitted), ' entries in hitmap')
+                return
+            row = int(splitted[0])  # first number in line indicates row number of pixels
+            if row >= sensor_dim[0]:
+                print('invalid line', line)
+                continue
+            for col in range(1, sensor_dim[1] + 1):
+                # each line contains number of hits for column index of pixel in current row,
+                # column index corresponds to position in line
+                # eg : 39 1 0 2 4 7 0 1 0 0 13 1 186 3 1 0 2 0 2 4 0 0 7 14 4 3 3 1 ...
+                # corresponds to hits in row 39, pixel 39:00 got 1 hit, 39:01 got 0 hits, 39:02 got 2 hits, ...
+
+                hits = int(splitted[col])
+                hitmap[row, col - 1] = hits
+    return hitmap
+
+
+def plotHitmap(data, **kwargs):
+    defaultKwargs = {'plotHist': False, 'figure': None, 'xAxisLabelMap': 'column', 'yAxisLabelMap': 'row',
+                     'titleMap': 'Chip-Map', 'xAxisLabelHist': 'TDAC values', 'yAxisLabelHist': 'Counts',
+                     'titleHist': 'TDAC usage', 'annotMap': False}
+    kwargs = {**defaultKwargs, **kwargs}
+    fig = kwargs['figure']
+    if not fig:
+        fig = plt.figure()
+    if kwargs['plotHist']:
+        ax1 = plt.subplot(221)
+        ax1.set(title=kwargs['titleHist'], xlabel=kwargs['xAxisLabelHist'], ylabel=kwargs['yAxisLabelHist'])
+        plt.xlim(0, 15)
+        tdac_map = data.flatten()
+        tdac_map = tdac_map[tdac_map >= 0]  # get rid of -1
+        plt.hist(tdac_map, bins=15)
+        ax2 = plt.subplot(222)
+    else:
+        ax2 = plt.subplot(111)
+    ax2.set_xlabel(kwargs['titleMap'])
+    ax2.set_ylabel(kwargs['yAxisLabelMap'])
+    ax2.set_title(kwargs['xAxisLabelMap'])
+    sns.heatmap(data, annot=kwargs['annotMap'])
+    ax2.invert_yaxis()
+
+
+def readSpectrum(file):
+    meanMap = np.zeros(sensor_dim)
+    accumulated_hist = np.zeros(256)
+    with open(file) as f:
+        for line in f:
+            if line.startswith('#'):
+                continue
+            match = re.match(r'(\d+):(\d+)(.+)', line)
+            if not match:
+                continue
+            row = int(match.group(1))
+            col = int(match.group(2))
+            data = match.group(3)
+
+            counts = np.array(data.split(), dtype=int)
+            accumulated_hist += counts
+            bins = np.arange(256)
+
+            if counts[100:256].any():
+                print(f'big ToT for pixel {row}:{col}')
+
+            mean = np.average(bins, weights=counts)
+            var = np.average((bins - mean) ** 2, weights=counts)
+            std_dev = np.sqrt(var)
+            meanMap[row][col] = mean
+
+
+def getPowerReport(file):
+    inBiasSection = False
+    powerInfo = []
+    currSection = {}
+    with open(file) as f:
+        for line in f:
+            if line.startswith('#Power consumption'):
+                inBiasSection = True
+                continue
+            if line.startswith('#! Pixel'):
+                break
+            if not inBiasSection:
+                continue
+            dacMatch = re.search(r'#(.+):', line)
+            if dacMatch:
+                if len(currSection.keys()) > 0:
+                    powerInfo.append(currSection)
+                    currSection = {}
+                currSection['name'] = dacMatch.group(1)
+                continue
+            measurementMatch = re.search(r'#*(.) = (\d+\.*\d*)', line)
+            if measurementMatch:
+                currSection[measurementMatch.group(1)] = float(measurementMatch.group(2))
+
+    return powerInfo
+
+
+
+
 
 
 if __name__ == '__main__':

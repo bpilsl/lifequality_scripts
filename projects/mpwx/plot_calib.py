@@ -146,7 +146,7 @@ hist, bin_edges = np.histogram(df['vt50'], bins=nBins)
 bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
 # Use curve_fit to fit the Gaussian function to the histogram data
-initial_guess = [1.0, np.mean(df['vt50']), np.std(df['vt50'])]
+initial_guess = [1.0, max(df['vt50']), np.std(df['vt50'])]
 params, covariance = curve_fit(gaussian, bin_centers, hist, p0=initial_guess)
 amplitude, mean, stddev = params
 stddev = abs(stddev)
