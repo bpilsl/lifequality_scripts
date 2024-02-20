@@ -133,7 +133,10 @@ def interpretScurve(data, **kwargs):
     try:
         initial_guess = [1.0, bin_centers[counts.argmax()], np.std(no_nan)]
         params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
-        retval['noiseGaussFit'] = params
+        amplitude, mean, stddev = params
+        stddev = abs(stddev)
+        mean_error = stddev / np.sqrt(sum(counts))
+        retval['noiseGaussFit'] = (mean, stddev, mean_error)
         amplitude, mean, stddev = params
         stddev = abs(stddev)
         if doPlot:

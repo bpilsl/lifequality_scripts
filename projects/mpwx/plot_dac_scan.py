@@ -14,10 +14,10 @@ def v_to_q(x):
     # Q = C * U
     # with C ~ 2.8fF and electron charge
     # a charge of 16.56 ke-/V is evaluated
-    return x * 16.56
+    return x * 17.5
 
 def q_to_v(x):
-    return x / 16.56
+    return x / 17.5
 
 if __name__ == '__main__':
     # Process multiple data files
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     warnings.simplefilter("error", OptimizeWarning)
     warnings.filterwarnings('ignore')
 
-    vt50Stat = []
+    sStats = []
     powerStat = {'dac': [], 'name': [], 'u': [], 'i': [], 'p': []}
     for file in data_files:
         dacMatch = re.search(r'DAC_(.+?)(\d+)', file)
@@ -58,40 +58,69 @@ if __name__ == '__main__':
 
         try:
             df = readScurveData(file)
-            gaussFit = interpretScurve(df, doPlot=False)['halfWayGaussFit']
-            mean = gaussFit[0]
-            err = gaussFit[2]
-            vt50Stat.append([dacVal, mean, err])
+            result = interpretScurve(df, doPlot=False)
+            gaussFit = result['halfWayGaussFit']
+            meanResponse = gaussFit[0]
+            errResponse = gaussFit[2]
+            noise = result['noiseGaussFit']
+            meanNoise = noise[0]
+            errNoise = noise[2]
+
+            sStats.append([dacVal, meanResponse, errResponse, meanNoise, errNoise])
         except Exception as e:
             print(f'file {file} not processable: {e}')
 
+    fig = plt.figure()
+    gs = GridSpec(2, 2, figure=fig)
+
     df = pd.DataFrame(powerStat)
-    ax = plt.subplot(121)
-    sns.lineplot(x='dac', y='i', hue='name', marker='o', data=df)
-    plt.axvline(x=nominalDACval, color='r', linestyle='--', label=f'Nominal DAC = {nominalDACval}')
+    ax = fig.add_subplot(gs[:, 0])
+    sns.lineplot(x='dac', y='p', hue='name', marker='o', data=df)
+    plt.axvline(x=nominalDACval, color='r', linestyle='dashdot', label=f'Nominal DAC = {nominalDACval}', linewidth=.95)
     plt.grid()
-    plt.legend()
-    ax.set_xlabel(f'{dacName}')
-    ax.set_ylabel('I[mA]')
-    ax.set_title(f'Power consumption scan of {dacName}')
+    plt.legend(fontsize=15)
+    plt.xticks(fontsize=13)
+    plt.yticks(fontsize=13)
+    ax.set_xlabel(f'{dacName}', fontsize=15)
+    ax.set_ylabel('P [mW]', fontsize=15)
+    ax.set_title(f'Power consumption scan of {dacName}', fontsize=30)
 
-    vt50Stat = np.array(vt50Stat)
-    vt50Stat = vt50Stat[vt50Stat[:, 0].argsort()]  # sort by thr values
+    sStats = np.array(sStats)
+    sStats = sStats[sStats[:, 0].argsort()]  # sort by thr values
 
-    x = vt50Stat[:, 0]
-    q = v_to_q(x)
-    y = vt50Stat[:, 1]
-    err = vt50Stat[:, 2]
-
-    ax = plt.subplot(122)
-    ax.errorbar(x, y, yerr=err, fmt='o', markersize=2, capsize=5, label='Data')
-    plt.axvline(x=nominalDACval, color='r', linestyle='--', label=f'Nominal DAC = {nominalDACval}')
-    ax.legend(loc='upper left')
-    ax.set_xlabel(f'{dacName}')
-    ax.set_ylabel(r'$\mu(VT50)$ [mV]')
-    ax.set_title(f'Avg. VT50 for different {dacName} values')
+    x = sStats[:, 0]
+    y = sStats[:, 1]
+    errResponse = sStats[:, 2]
+    ax = fig.add_subplot(gs[0, 1])
+    ax.errorbar(x, y, yerr=errResponse, fmt='o', markersize=2, capsize=5, label='Data')
+    plt.axvline(x=nominalDACval, color='r', linestyle='dashdot', label=f'Nominal DAC = {nominalDACval}', linewidth=.95)
+    ax.legend(loc='upper left', fontsize=15)
+    ax.set_xlabel(f'{dacName}', fontsize=15)
+    ax.set_ylabel(r'$\mu(V_{inj, 50})$ [mV]', fontsize=15)
+    ax.set_title(f'Avg. 50% response {"$V_{inj, 50}$"} for different {dacName} values', fontsize=30)
     secax_y = ax.secondary_yaxis('right', functions=(v_to_q, q_to_v))
-    secax_y.set_ylabel(r'$\mu(VT50)$ [$e^-$]')
+    secax_y.set_ylabel(r'$\mu(V_{inj, 50})$ [$e^-$]', fontsize=15)
+    ax.tick_params(axis='x', labelsize=13)
+    ax.tick_params(axis='y', labelsize=13)
+    secax_y.tick_params(axis='y', labelsize=13)
     ax.grid()
+
+    x = sStats[:, 0]
+    y = sStats[:, 3]
+    errResponse = abs(sStats[:, 4])
+    ax = fig.add_subplot(gs[1, 1])
+    ax.errorbar(x, y, yerr=errResponse, fmt='o', markersize=2, capsize=5, label='Data')
+    plt.axvline(x=nominalDACval, color='r', linestyle='dashdot', label=f'Nominal DAC = {nominalDACval}', linewidth=.95)
+    ax.legend(loc='upper left', fontsize=15)
+    ax.set_xlabel(f'{dacName}', fontsize=15)
+    ax.set_ylabel(r'$\mu(Noise)$ [mV]', fontsize=15)
+    ax.set_title(f'Avg. Noise for different {dacName} values', fontsize=30)
+    secax_y = ax.secondary_yaxis('right', functions=(v_to_q, q_to_v))
+    secax_y.set_ylabel(r'$\mu(Noise)$ [$e^-$]')
+    ax.tick_params(axis='x', labelsize=13)
+    ax.tick_params(axis='y', labelsize=13)
+    secax_y.tick_params(axis='y', labelsize=13)
+    ax.grid()
+
 
     plt.show()
