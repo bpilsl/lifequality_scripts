@@ -13,7 +13,7 @@ import seaborn as sns
 def v_to_q(x):
     # Q = C * U
     # with C ~ 2.8fF and electron charge
-    # a charge of 16.56 ke-/V is evaluated
+    # a charge of 17.5 ke-/V is evaluated
     return x * 17.5
 
 def q_to_v(x):
@@ -22,7 +22,6 @@ def q_to_v(x):
 if __name__ == '__main__':
     # Process multiple data files
     data_files = glob(sys.argv[1] + '*.txt')
-    # nominalDACval = int(sys.argv[2], 0)
     register_defaults = {
         "VPCOMP": 0x13,
         "VPTRIM": 0x24,
@@ -34,6 +33,8 @@ if __name__ == '__main__':
         "VPBIAS": 0x25,
         "VN": 0x15
     }
+    power_items = ['p1v8_vdda', 'p1v8_vddc', 'p1v8_vdd!', 'p1v3_vssa', 'p1v8_nw_ring', 'p1v8_vsensbus', 'p2v5d']
+    # power_items = ['p1v8_vdda', 'p1v8_vddc', 'p1v8_vdd!', 'p1v3_vssa', 'p1v8_nw_ring', 'p1v8_vsensbus']
     data_files.sort()
     warnings.simplefilter("error", OptimizeWarning)
     warnings.filterwarnings('ignore')
@@ -50,6 +51,8 @@ if __name__ == '__main__':
             continue
         report = getPowerReport(file)
         for i in report:
+            if not i['name'] in power_items:
+                continue
             powerStat['dac'].append(dacVal)
             powerStat['name'].append(i['name'])
             powerStat['u'].append(i['U'])
@@ -78,7 +81,7 @@ if __name__ == '__main__':
     sns.lineplot(x='dac', y='p', hue='name', marker='o', data=df)
     plt.axvline(x=nominalDACval, color='r', linestyle='dashdot', label=f'Nominal DAC = {nominalDACval}', linewidth=.95)
     plt.grid()
-    plt.legend(fontsize=15)
+    plt.legend(loc='upper left', fontsize=12)
     plt.xticks(fontsize=13)
     plt.yticks(fontsize=13)
     ax.set_xlabel(f'{dacName}', fontsize=15)

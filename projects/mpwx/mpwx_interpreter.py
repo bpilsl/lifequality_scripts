@@ -25,12 +25,15 @@ def inverseSigmoid(y, L, x0, k, b):
 def v_to_q(v):
     return v * 2.8e-15 / 1.6e-19
 
+def q_to_v(q):
+    return q * 1.6e-19 / 2.8e-15
+
 def interpretScurve(data, **kwargs):
     defaultKwargs = {'doPlot': True, 'figure': None, 'xAxisLabel': 'Injection Voltage [mV]', 'yAxisLabel': 'Hits',
                      'title': 'S-curve scan'}
     kwargs = {**defaultKwargs, **kwargs}
     doPlot = kwargs['doPlot']
-    retval = {'sigmoidFit': [], 'halfWayGaussFit': None, 'noiseGaussFit': None}
+    retval = {'sigmoidFit': [], 'halfWayGaussFit': None, 'noiseGaussFit': None, 'vt50Map': None}
 
     vt50_map = np.zeros(sensor_dim)
     noise_map = np.zeros(sensor_dim)
@@ -73,6 +76,7 @@ def interpretScurve(data, **kwargs):
             print('optimization failed for', pixel, ow)
 
     no_nan = vt50_map.flatten()[~np.isnan(vt50_map.flatten())]
+    retval['vt50Map']  = vt50_map
     counts, bins = np.histogram(no_nan, bins=100)
 
     bins = bins[1:]
@@ -83,11 +87,11 @@ def interpretScurve(data, **kwargs):
 
     if doPlot:
         ax2 = fig.add_subplot(gs[0, 2])
-        ax2.set(title='VT50 map', xlabel='Col', ylabel='Row')
+        ax2.set(title='$V_{inj, 50}$ map', xlabel='Col', ylabel='Row')
         sns.heatmap(vt50_map)
         ax2.invert_yaxis()
         ax3 = fig.add_subplot(gs[0, 1])
-        ax3.set(title='VT50 histogram', xlabel='VT50 [mV]', ylabel='Counts')
+        ax3.set(title='$V_{inj, 50}$ histogram', xlabel='$V_{inj, 50}$ [mV]', ylabel='Counts')
 
         ax3.hist(bins[:-1], bins, weights=counts)
 
@@ -293,6 +297,33 @@ def getPowerReport(file):
 
     return powerInfo
 
+
+def parse_tdac(file):
+    map = np.zeros(sensor_dim)
+    with open(file, 'r') as f:
+        row = 0
+        for line in f:
+            if line.startswith('#') or len(line) == 0 or len(line.strip()) == 0:
+                # comment or empty or just whitespace line
+                continue
+
+            splitted = line.split(' ')
+            if len(splitted) != sensor_dim[0] + 1:
+                print('invalid line with ', len(splitted), ' entries in hitmap')
+                return
+            row = int(splitted[0])  # first number in line indicates row number of pixels
+            if row >= sensor_dim[0]:
+                print('invalid line', line)
+                continue
+            for col in range(1, sensor_dim[1] + 1):
+                # each line contains number of hits for column index of pixel in current row,
+                # column index corresponds to position in line
+                # eg : 39 1 0 2 4 7 0 1 0 0 13 1 186 3 1 0 2 0 2 4 0 0 7 14 4 3 3 1 ...
+                # corresponds to hits in row 39, pixel 39:00 got 1 hit, 39:01 got 0 hits, 39:02 got 2 hits, ...
+
+                tdac = int(splitted[col])
+                map['tdac'][row][col - 1] = tdac
+    return map
 
 
 
