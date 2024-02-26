@@ -41,8 +41,8 @@ if __name__ == '__main__':
             plotHitmap(data, plotHist=True)
 
         elif data_type == 'spectrum':
-            pass
-            # plot_spectrum(file)
+            data = readSpectrum(file)
+            plotSpectrum(*data)
         else:
             print('unsupported data type', data_type)
             exit(1)
