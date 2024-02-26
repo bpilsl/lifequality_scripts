@@ -55,7 +55,10 @@ def interpretScurve(data, **kwargs):
             ax1.scatter(x_data, y_data, marker='.', label=f"Pixel {pixel}")
             plt.xlim(min(x_data), max(x_data))
         try:
-            p0 = [max(y_data), np.median(x_data), 1, min(y_data)]  # this is a mandatory initial guess
+            x00 = x_data[y_data > max(y_data) / 2][0]  # x value at 1st time more than max(hits) / 2 was encountered,
+            # should be a proper guess for the x0 parameter
+            p0 = [max(y_data), x00, 1, min(y_data)]  # this is a mandatory initial guess
+            # print('p0 = ', p0)
             popt, _ = curve_fit(sigmoid, x_data, y_data, p0, maxfev=100000)
             retval['sigmoidFit'].append(popt)
             # of fit
@@ -269,6 +272,43 @@ def readSpectrum(file):
             var = np.average((bins - mean) ** 2, weights=counts)
             std_dev = np.sqrt(var)
             meanMap[row][col] = mean
+        return accumulated_hist, meanMap
+
+def plotSpectrum(accumulated_hist, meanMap):
+    non_zero_indices = accumulated_hist > 0
+    bins = np.arange(256)
+    non_zero_bins = bins[non_zero_indices]
+    non_zero_counts = accumulated_hist[non_zero_indices]
+
+    mean = np.average(bins, weights=accumulated_hist)
+    var = np.average((bins - mean) ** 2, weights=accumulated_hist)
+    std_dev = np.sqrt(var)
+    multiplePixel = len(meanMap[meanMap > 0]) > 1
+    if multiplePixel:
+        ax1 = plt.subplot(121)
+    else:
+        ax1 = plt.subplot()
+    ax1.bar(non_zero_bins, non_zero_counts, width=1.0, align='edge', edgecolor='black')
+
+    props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
+    stats = f'$\\mu$ = {mean:.1f}LSB\n$\\sigma$ = {std_dev:.1f}LSB'
+    ax1.text(0.75, 0.95, stats, transform=ax1.transAxes, fontsize=15,
+             verticalalignment='top', bbox=props)
+
+    ax1.set_title('Accumulated ToT Histogram', fontsize=30)
+
+    ax1.set_xlabel('ToT (LSB)', fontsize=40)
+    ax1.set_ylabel('Counts', fontsize=40)
+    plt.xticks(fontsize=30)
+    plt.yticks(fontsize=30)
+    plt.xlim(0, 250)
+    # plt.ylim(0, 5)
+
+    if multiplePixel:
+        ax2 = plt.subplot(122)
+        sns.heatmap(meanMap, ax=ax2)
+        ax2.invert_yaxis()
+        ax2.set_title('$\mu_{TOT}$ Map')
 
 
 def getPowerReport(file):
