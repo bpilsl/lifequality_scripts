@@ -9,7 +9,6 @@ from scipy.optimize import OptimizeWarning
 
 sensor_dim = (64, 64)
 
-
 def sigmoid(x, L, x0, k, b):
     y = L / (1 + np.exp(-k * (x - x0))) + b
     return y
@@ -23,10 +22,10 @@ def inverseSigmoid(y, L, x0, k, b):
     return - 1 / k * np.log(L / (y - b) - 1) + x0
 
 def v_to_q(v):
-    return v * 2.8e-15 / 1.6e-19
+    return v * 1e-3 * 2.8e-15 / 1.6e-19
 
 def q_to_v(q):
-    return q * 1.6e-19 / 2.8e-15
+    return q * 1.6e-19 / 2.8e-15 * 1e3
 
 def interpretScurve(data, **kwargs):
     defaultKwargs = {'doPlot': True, 'figure': None, 'xAxisLabel': 'Injection Voltage [mV]', 'yAxisLabel': 'Hits',
@@ -34,6 +33,24 @@ def interpretScurve(data, **kwargs):
     kwargs = {**defaultKwargs, **kwargs}
     doPlot = kwargs['doPlot']
     retval = {'sigmoidFit': [], 'halfWayGaussFit': None, 'noiseGaussFit': None, 'vt50Map': None}
+
+    def find_transition_index(arr):
+        saturated_values = (min(arr), max(arr))
+
+        # Find indices where array is not equal to the saturated values
+        non_saturated_indices = np.where(~np.isin(arr, saturated_values))[0]
+
+        if non_saturated_indices.size < 2:
+            # Array is entirely saturated, no transition found
+            return None
+
+        # Calculate the gradient of the array within the non-saturated subset
+        gradient = np.gradient(arr[non_saturated_indices])
+
+        # Find the index with the maximum absolute gradient
+        max_gradient_index = non_saturated_indices[np.argmax(np.abs(gradient))]
+
+        return max_gradient_index
 
     vt50_map = np.zeros(sensor_dim)
     noise_map = np.zeros(sensor_dim)
@@ -46,7 +63,6 @@ def interpretScurve(data, **kwargs):
         ax1 = fig.add_subplot(gs[:, 0])
         ax1.set(title=kwargs['title'], xlabel=kwargs['xAxisLabel'],
                 ylabel='Number of Hits')
-        # ax1.legend()
         ax1.grid(True)
     for pixel, group in data.groupby('Pixel'):
         x_data = np.array(group['Voltage'])
@@ -55,10 +71,14 @@ def interpretScurve(data, **kwargs):
             ax1.scatter(x_data, y_data, marker='.', label=f"Pixel {pixel}")
             plt.xlim(min(x_data), max(x_data))
         try:
-            x00 = x_data[y_data > max(y_data) / 2][0]  # x value at 1st time more than max(hits) / 2 was encountered,
-            # should be a proper guess for the x0 parameter
-            p0 = [max(y_data), x00, 1, min(y_data)]  # this is a mandatory initial guess
-            # print('p0 = ', p0)
+            # print('interpreter: ', x_data, y_data)
+            x0index = find_transition_index(y_data)
+            if not x0index:
+                print('Problem finding initial fit params')
+                continue
+            x00 = x_data[x0index]
+            k0 = np.sign(y_data[-1] - y_data[0])
+            p0 = [max(y_data), x00, k0, min(y_data)]  # this is a mandatory initial guess
             popt, _ = curve_fit(sigmoid, x_data, y_data, p0, maxfev=100000)
             retval['sigmoidFit'].append(popt)
             # of fit
@@ -72,14 +92,18 @@ def interpretScurve(data, **kwargs):
                 x_fit = np.linspace(min(x_data), max(x_data), 200)  # generate points for plot
                 ax1.plot(x_fit, sigmoid(x_fit, *popt), label='fit')
         except RuntimeWarning as rtw:
-            print(rtw)
+            print(rtw, 'at', x_data, '\n', p0, '\n', y_data)
         except RuntimeError as rte:
-            print(rte)
+            print(rte, 'at', x_data, '\n', p0, '\n', y_data)
         except OptimizeWarning as ow:
             print('optimization failed for', pixel, ow)
+        except Exception as ex:
+            print('random ex: ', ex)
 
     no_nan = vt50_map.flatten()[~np.isnan(vt50_map.flatten())]
-    retval['vt50Map']  = vt50_map
+    no_nan = no_nan[~np.isinf(no_nan)]
+    retval['vt50Map'] = vt50_map
+    # import pdb; pdb.set_trace()
     counts, bins = np.histogram(no_nan, bins=100)
 
     bins = bins[1:]
@@ -100,7 +124,11 @@ def interpretScurve(data, **kwargs):
 
     try:
         # Use curve_fit to fit the Gaussian function to the histogram data
-        initial_guess = [1.0, max(no_nan), np.std(no_nan) + .2]
+        # mu0 = bins[:-1][counts == max(counts)][0]  # bin value at which bin with maximum counts sits
+        # initial_guess = [1.0, mu0, np.std(no_nan)]
+        initial_guess = [1.0, bin_centers[counts.argmax()], np.std(no_nan)]
+        # print(initial_guess)
+        # print('p0',initial_guess, max(no_nan), no_nan)
         params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
         amplitude, mean, stddev = params
         stddev = abs(stddev)
@@ -112,16 +140,21 @@ def interpretScurve(data, **kwargs):
 
             # box with statistics
             props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
-            stats = f'$\\mu = {mean:.1f}mV \\approx {v_to_q(mean * 1e-3):.0f} e^-$\n$\\sigma = {stddev:.1f}mV \\approx {v_to_q(stddev * 1e-3):.0f} e^-$'
+            stats = f'$\\mu = {mean:.1f}mV \\approx {v_to_q(mean):.0f} e^-$\n$\\sigma = {stddev:.1f}mV \\approx {v_to_q(stddev):.0f} e^-$'
             ax3.text(0.65, 0.95, stats, transform=ax3.transAxes, fontsize=15,
                      verticalalignment='top', bbox=props)
             ax3.grid()
             plt.xlim(min(x_data), max(x_data))
+    except RuntimeWarning as rtw:
+        print(rtw, 'at', bin_centers, '\n', initial_guess, '\n', counts)
+    except RuntimeError as rte:
+        print(rte, 'at', bin_centers, '\n', p0, '\n', counts)
     except Exception as ex:
         print('error fitting gaussian to VT50: ', ex)
 
     # NOISE distribution
     no_nan = noise_map.flatten()[~np.isnan(noise_map.flatten())]
+    no_nan = no_nan[~np.isinf(no_nan)]
 
     counts, bins = np.histogram(no_nan, bins=100)
 
@@ -172,6 +205,9 @@ def readScurveData(file):
                     current_pixel = {}
                 _, pixel_info = line.split('#! Pixel')
                 current_pixel['Pixel'] = pixel_info.strip()
+                # if current_pixel['Pixel'] != '0:32' and current_pixel['Pixel'] != '0:33' and current_pixel['Pixel'] != '1:32':
+                #     current_pixel = {}
+                #     continue
                 current_pixel['Voltage'] = []
                 current_pixel['Hits'] = []
                 row, col = pixel_info.strip().split(':')
@@ -182,10 +218,11 @@ def readScurveData(file):
                 # Extract voltage and hits information for each pixel
                 try:
                     voltage, hits, _ = line.split()
-                    pixel_data['Pixel'].append(current_pixel['Pixel'])
-                    pixel_data['Index'].append(current_pixel['Index'])
-                    pixel_data['Voltage'].append(float(voltage) * 1e3)  #convert to mV
-                    pixel_data['Hits'].append(int(hits))
+                    if len(current_pixel.keys()) == 4:
+                        pixel_data['Pixel'].append(current_pixel['Pixel'])
+                        pixel_data['Index'].append(current_pixel['Index'])
+                        pixel_data['Voltage'].append(float(voltage) * 1e3)  #convert to mV
+                        pixel_data['Hits'].append(int(hits))
                 except:
                     print('broken line ', line)
                     continue
