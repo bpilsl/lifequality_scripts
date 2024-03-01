@@ -50,6 +50,7 @@ if __name__ == '__main__':
         else:
             continue
         report = getPowerReport(file)
+        totalPower = {'i': .0, 'p': .0}
         for i in report:
             if not i['name'] in power_items:
                 continue
@@ -58,7 +59,16 @@ if __name__ == '__main__':
             powerStat['u'].append(i['U'])
             powerStat['i'].append(i['I'])
             powerStat['p'].append(i['P'])
+            totalPower['i'] += i['I']
+            totalPower['p'] += i['P']
 
+
+        # import pdb;pdb.set_trace()
+        powerStat['dac'].append(dacVal)
+        powerStat['name'].append('Total')
+        powerStat['p'].append(totalPower['p'])
+        powerStat['i'].append(totalPower['i'])
+        powerStat['u'].append(0)  # nonsense but necessary for processing to have same length arrays
         try:
             df = readScurveData(file)
             result = interpretScurve(df, doPlot=False)
