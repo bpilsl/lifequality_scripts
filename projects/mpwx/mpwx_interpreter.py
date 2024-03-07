@@ -13,10 +13,8 @@ def sigmoid(x, L, x0, k, b):
     y = L / (1 + np.exp(-k * (x - x0))) + b
     return y
 
-
 def gaussian(x, amplitude, mean, stddev):
     return amplitude * np.exp(-((x - mean) / stddev) ** 2 / 2)
-
 
 def inverseSigmoid(y, L, x0, k, b):
     return - 1 / k * np.log(L / (y - b) - 1) + x0
@@ -126,10 +124,13 @@ def interpretScurve(data, **kwargs):
         # Use curve_fit to fit the Gaussian function to the histogram data
         # mu0 = bins[:-1][counts == max(counts)][0]  # bin value at which bin with maximum counts sits
         # initial_guess = [1.0, mu0, np.std(no_nan)]
-        initial_guess = [1.0, bin_centers[counts.argmax()], np.std(no_nan)]
-        # print(initial_guess)
-        # print('p0',initial_guess, max(no_nan), no_nan)
+        stddev0 = np.std(no_nan[no_nan > 0])
+        if np.isnan(stddev0):
+            stddev0 = 0.0
+        initial_guess = [1.0, bin_centers[counts.argmax()], stddev0 + .1]
+        # print('vt50 initi', initial_guess)
         params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
+        # print('vt50 fitted', params)
         amplitude, mean, stddev = params
         stddev = abs(stddev)
         mean_error = stddev / np.sqrt(sum(counts))
@@ -148,7 +149,11 @@ def interpretScurve(data, **kwargs):
     except RuntimeWarning as rtw:
         print(rtw, 'at', bin_centers, '\n', initial_guess, '\n', counts)
     except RuntimeError as rte:
-        print(rte, 'at', bin_centers, '\n', p0, '\n', counts)
+        mean = np.average(bin_centers, weights=counts)
+        stddev = np.sqrt(np.average((bin_centers - mean) ** 2, weights=counts))
+        mean_error = stddev / np.sqrt(sum(counts))
+        retval['halfWayGaussFit'] = (mean, stddev, mean_error)
+        print(rte)
     except Exception as ex:
         print('error fitting gaussian to VT50: ', ex)
 
@@ -171,7 +176,11 @@ def interpretScurve(data, **kwargs):
         ax5.set(title='Noise histogram', xlabel='Noise [mV]', ylabel='Counts')
         ax5.hist(bins[:-1], bins, weights=counts)
     try:
-        initial_guess = [1.0, bin_centers[counts.argmax()], np.std(no_nan)]
+        stddev0 = np.std(no_nan[no_nan > 0])
+        if np.isnan(stddev0):
+            stddev0 = 0.0
+        initial_guess = [1.0, bin_centers[counts.argmax()], stddev0 + .1]
+        # initial_guess = [1.0, bin_centers[counts.argmax()], np.std(no_nan) + 0.02]
         params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
         amplitude, mean, stddev = params
         stddev = abs(stddev)
@@ -179,6 +188,7 @@ def interpretScurve(data, **kwargs):
         retval['noiseGaussFit'] = (mean, stddev, mean_error)
         amplitude, mean, stddev = params
         stddev = abs(stddev)
+        stddev = .2
         if doPlot:
             x_fit = np.linspace(0, 300, 1000)
             ax5.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
