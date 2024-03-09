@@ -9,21 +9,27 @@ from scipy.optimize import OptimizeWarning
 
 sensor_dim = (64, 64)
 
+
 def sigmoid(x, L, x0, k, b):
     y = L / (1 + np.exp(-k * (x - x0))) + b
     return y
 
+
 def gaussian(x, amplitude, mean, stddev):
     return amplitude * np.exp(-((x - mean) / stddev) ** 2 / 2)
+
 
 def inverseSigmoid(y, L, x0, k, b):
     return - 1 / k * np.log(L / (y - b) - 1) + x0
 
+
 def v_to_q(v):
     return v * 1e-3 * 2.8e-15 / 1.6e-19
 
+
 def q_to_v(q):
     return q * 1.6e-19 / 2.8e-15 * 1e3
+
 
 def interpretScurve(data, **kwargs):
     defaultKwargs = {'doPlot': True, 'figure': None, 'xAxisLabel': 'Injection Voltage [mV]', 'yAxisLabel': 'Hits',
@@ -205,7 +211,7 @@ def interpretScurve(data, **kwargs):
 
 
 def readScurveData(file):
-    pixel_data = {'Pixel':  [], 'Voltage': [], 'Hits': [], 'Index': []}
+    pixel_data = {'Pixel': [], 'Voltage': [], 'Hits': [], 'Index': []}
     current_pixel = {}
 
     with open(file, 'r') as f:
@@ -231,7 +237,7 @@ def readScurveData(file):
                     if len(current_pixel.keys()) == 4:
                         pixel_data['Pixel'].append(current_pixel['Pixel'])
                         pixel_data['Index'].append(current_pixel['Index'])
-                        pixel_data['Voltage'].append(float(voltage) * 1e3)  #convert to mV
+                        pixel_data['Voltage'].append(float(voltage) * 1e3)  # convert to mV
                         pixel_data['Hits'].append(int(hits))
                 except:
                     print('broken line ', line)
@@ -242,10 +248,14 @@ def readScurveData(file):
 
 def readHitmap(file):
     hitmap = np.zeros(sensor_dim)
+    t = 0.0
 
     with open(file, 'r') as f:
         row = 0
         for line in f:
+            match = re.search(r't = (\d+)', line)
+            if match:
+                t = float(match.group(1))
             if line.startswith('#') or len(line) == 0 or len(line.strip()) == 0:
                 # comment or empty or just whitespace line
                 continue
@@ -266,7 +276,7 @@ def readHitmap(file):
 
                 hits = int(splitted[col])
                 hitmap[row, col - 1] = hits
-    return hitmap
+    return hitmap, t
 
 
 def plotHitmap(data, **kwargs):
@@ -292,6 +302,23 @@ def plotHitmap(data, **kwargs):
     ax2.set_title(kwargs['xAxisLabelMap'])
     sns.heatmap(data, annot=kwargs['annotMap'])
     ax2.invert_yaxis()
+
+def plotNoise(data, time):
+    freq_data = data / (time * 1e-3)
+    ax1 = plt.subplot(121)
+    ax1.set(title='Noise-Map', xlabel='col', ylabel='row')
+    sns.heatmap(freq_data, annot=False)
+    ax1.invert_yaxis()
+
+    ax2 = plt.subplot(122)
+    ax2.set(title='Noise histogram', xlabel='f / Hz', ylabel='Counts')
+    freq_data = freq_data.flatten()
+
+    counts, bins = np.histogram(freq_data[freq_data > 0], bins=50)
+    ax2.hist(bins[:-1], bins, weights=counts)
+    total_freq = sum(freq_data[freq_data > 0])
+
+    ax2.text(max(bins) * .5, max(counts), f'max. f $\\approx {total_freq:.2f}$ Hz')
 
 
 def readSpectrum(file):
@@ -320,6 +347,7 @@ def readSpectrum(file):
             std_dev = np.sqrt(var)
             meanMap[row][col] = mean
         return accumulated_hist, meanMap
+
 
 def plotSpectrum(accumulated_hist, meanMap):
     non_zero_indices = accumulated_hist > 0
@@ -411,9 +439,6 @@ def parse_tdac(file):
                 tdac = int(splitted[col])
                 map['tdac'][row][col - 1] = tdac
     return map
-
-
-
 
 
 if __name__ == '__main__':

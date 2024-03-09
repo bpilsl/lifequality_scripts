@@ -19,15 +19,28 @@ def deduce_data_type(file):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Plotting suite for data of the RD50-MPWx series")
     parser.add_argument('-s', '--save_path', help='Path to save plot to')
+    parser.add_argument('-t', '--type', default=None, choices=['hm', 's', 'n', 'c'], help='Type of the data (options: hm, s, n, c)')
     parser.add_argument('files', nargs='+', help='Input file(s)')
     args = parser.parse_args()
     save_path = args.save_path
+    t = args.type
+    data_type = None
+    if t:
+        if t == 'hm':
+            data_type = 'hitmap'
+        elif t == 's':
+            data_type = 'scurve'
+        elif t == 'c':
+            data_type = 'tdac_map'
+        elif t == 'n':
+            data_type = 'noise_map'
 
     warnings.simplefilter("error", OptimizeWarning)
     for i, file in enumerate(args.files):
-        data_type = deduce_data_type(file)
+        if not data_type:
+            data_type = deduce_data_type(file)
         if data_type == 'hitmap':
-            data = readHitmap(file)
+            data, _ = readHitmap(file)
             plotHitmap(data)
         elif data_type == 'scurve':
             data = readScurveData(file)
@@ -37,12 +50,16 @@ if __name__ == '__main__':
                 print(f'{i["name"]}: U = {i["U"]}V, I = {i["I"]}mA, P = {i["P"]}mW')
 
         elif data_type == 'tdac_map':
-            data = readHitmap(file)
+            data, _ = readHitmap(file)
             plotHitmap(data, plotHist=True)
 
         elif data_type == 'spectrum':
             data = readSpectrum(file)
             plotSpectrum(*data)
+        elif data_type == 'noise_map':
+            data, time = readHitmap(file)
+            plotNoise(data, time)
+
         else:
             print('unsupported data type', data_type)
             exit(1)
