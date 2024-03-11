@@ -410,6 +410,8 @@ def getPowerReport(file):
             if measurementMatch:
                 currSection[measurementMatch.group(1)] = float(measurementMatch.group(2))
 
+    df = pd.DataFrame(powerInfo)
+    powerInfo.append({'name': 'Total', 'I': sum(df['I']), 'P': sum(df['P']), 'U': np.nan})
     return powerInfo
 
 
