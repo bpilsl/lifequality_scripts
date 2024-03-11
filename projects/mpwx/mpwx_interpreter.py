@@ -185,7 +185,7 @@ def interpretScurve(data, **kwargs):
         stddev0 = np.std(no_nan[no_nan > 0])
         if np.isnan(stddev0):
             stddev0 = 0.0
-        initial_guess = [1.0, bin_centers[counts.argmax()], stddev0 + .1]
+        initial_guess = [max(counts), bin_centers[counts.argmax()], stddev0 + .1]
         # initial_guess = [1.0, bin_centers[counts.argmax()], np.std(no_nan) + 0.02]
         params, covariance = curve_fit(gaussian, bin_centers, counts, p0=initial_guess)
         amplitude, mean, stddev = params
@@ -193,8 +193,6 @@ def interpretScurve(data, **kwargs):
         mean_error = stddev / np.sqrt(sum(counts))
         retval['noiseGaussFit'] = (mean, stddev, mean_error)
         amplitude, mean, stddev = params
-        stddev = abs(stddev)
-        stddev = .2
         if doPlot:
             x_fit = np.linspace(0, 300, 1000)
             ax5.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
