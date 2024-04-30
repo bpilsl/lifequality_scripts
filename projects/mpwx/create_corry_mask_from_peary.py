@@ -18,11 +18,6 @@ with open(input_filename, 'r') as input_file:
             continue
         parts = line.split()
         row, col, mask, en_inj, hb_en, en_sfout, TDAC = map(int, parts[:7])
-        if current_row is None or current_row != row:
-            if len(masked_pixels) == 64:
-                masked_rows.add(current_row)
-            masked_pixels = []
-            current_row = row
         if mask == 1:
             masked_pixels.append((row, col))
 
