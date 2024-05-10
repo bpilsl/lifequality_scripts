@@ -1,8 +1,12 @@
 import sys
+
+import matplotlib.pyplot as plt
+
 from mpwx_interpreter import *
 
 nBins = 100
-
+font_small = 14
+font_large = 24
 
 def parse_tdac(file, output_dict):
     with open(file, 'r') as f:
@@ -58,40 +62,56 @@ for tdac_value in range(16):
 
     # ax.hist(subset_df['vt50'], bins=10, stacked=False, alpha=0.7, label=f'tdac={tdac_value}', histtype='bar')
 
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(16, 9))
+
+# PLOT trimmed data
 
 cmap = plt.get_cmap('magma')
-colors = cmap(np.linspace(1/16, 1, 16))
+colors = cmap(np.linspace(1 / 16, 1, 16))
 # create a stacked histogram, where VT50 will be binned but, stacked on top of each other, grouped by the used
 # trimDAC values
-ax.hist(tdac_separated, stacked=True, label=labels, histtype='bar', alpha=0.7, bins=nBins, color=colors)
+ax.hist(tdac_separated, stacked=True, label=labels, histtype='bar', alpha=0.9, bins=nBins, color=colors)
 
 hist, bin_edges = np.histogram(df['vt50'], bins=nBins)
 # Calculate bin centers
 bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
 # Use curve_fit to fit the Gaussian function to the histogram data
-initial_guess = [1.0, max(df['vt50']), np.std(df['vt50'])]
+initial_guess = [1.0, np.mean(df['vt50']), np.std(df['vt50'])]
 params, covariance = curve_fit(gaussian, bin_centers, hist, p0=initial_guess)
 amplitude, mean, stddev = params
 stddev = abs(stddev)
-x_fit = np.linspace(min(df['vt50']), max(df['vt50']), 1000)
+x_fit = np.linspace(min(df['vt50']), 200, 1000)
 ax.plot(x_fit, gaussian(x_fit, amplitude, mean, stddev), '--', label='Fit', color='black')
 
 # box with statistics
 props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-stats = (f'$\\mu$ = {mean :.1f}mV $\\approx$ {v_to_q(mean * 1e-3):.0f} $e^-$ \n$\\sigma$ = {stddev * 1e-3:.1f}mV '
+stats = (f'$\\mu$ = {mean :.1f}mV $\\approx$ {v_to_q(mean):.0f} $e^-$ \n$\\sigma$ = {stddev:.1f}mV '
          f'$\\approx$ {v_to_q(stddev):.0f} $e^-$')
 
-ax.text(0.75, 0.95, stats, transform=ax.transAxes, fontsize=14,
+ax.text(0.55, 0.95, stats, transform=ax.transAxes, fontsize=font_small,
         verticalalignment='top', bbox=props)
 
+# PLOT untrimmed data
 
+if len(sys.argv) >= 4:
+    untrimmed_s = sys.argv[3]
+    sData = readScurveData(untrimmed_s)
+    result = interpretScurve(sData, doPlot=False)
+    vt50_map = result['vt50Map']
+    data['vt50'] = vt50_map.flatten()
+    data['vt50'] = data['vt50'][data['vt50'] > 0]
+    ax.hist(data['vt50'], label='untrimmed', histtype='bar', alpha=0.2, bins=nBins * 2, color='grey')
+
+plt.xlim(80, 200)
 secax = ax.secondary_xaxis('top', functions=(v_to_q, q_to_v))
-secax.set_xlabel('Threshold ($ke^-$)')
-plt.xlabel('$V_{inj, 50}$ [mV]')
-plt.ylabel('Counts')
-plt.title('$V_{inj, 50}$ grouped by TrimDAC')
-plt.legend()
+secax.set_xlabel('$V_{inj, 50}$ [$e^-$]', fontsize=font_small)
+plt.xlabel('$V_{inj, 50}$ [mV]', fontsize=font_small)
+plt.ylabel('Counts', fontsize=font_small)
+plt.title('50% Response', fontsize=font_large)
+plt.xticks(fontsize=font_small)
+secax.tick_params(labelsize=font_small)
+plt.yticks(fontsize=font_small)
+plt.legend(prop={'size': font_small})
 plt.grid()
 plt.show()
