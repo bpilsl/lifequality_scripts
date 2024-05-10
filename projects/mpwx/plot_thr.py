@@ -31,6 +31,7 @@ if __name__ == '__main__':
         thr = (float(re.search(r'thr_(\d+\.*\d*)', file).group(1))) * 1e3 - baseline  # convert to mV
         # mean, err = s_curve_stats(file, thr, len(data_files), i)
         df = readScurveData(file)
+        print(df)
         try:
             gaussFit = interpretScurve(df, doPlot=False)['halfWayGaussFit']
             mean = gaussFit[0]

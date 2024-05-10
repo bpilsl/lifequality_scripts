@@ -24,10 +24,12 @@ def inverseSigmoid(y, L, x0, k, b):
 
 
 def v_to_q(v):
+    #  v should be given in mV
     return v * 1e-3 * 2.8e-15 / 1.6e-19
 
 
 def q_to_v(q):
+    # q passed in units of e-; returns voltage in mV
     return q * 1.6e-19 / 2.8e-15 * 1e3
 
 
@@ -175,11 +177,11 @@ def interpretScurve(data, **kwargs):
     bin_centers = (bins[:-1] + bins[1:]) / 2
     if doPlot:
         ax4 = fig.add_subplot(gs[1, 2])
-        ax4.set(title='Noise map', xlabel='Col', ylabel='Row')
+        ax4.set(title='CEN map', xlabel='Col', ylabel='Row')
         sns.heatmap(noise_map)
         ax4.invert_yaxis()
         ax5 = fig.add_subplot(gs[1, 1])
-        ax5.set(title='Noise histogram', xlabel='Noise [mV]', ylabel='Counts')
+        ax5.set(title='CEN histogram', xlabel='Noise [mV]', ylabel='Counts')
         ax5.hist(bins[:-1], bins, weights=counts)
     try:
         stddev0 = np.std(no_nan[no_nan > 0])
@@ -199,10 +201,16 @@ def interpretScurve(data, **kwargs):
 
             # box with statistics
             props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
-            stats = f'$\\mu$ = {mean:.1f}mV\n$\\sigma$ = {stddev:.1f}mV'
+            stats = f'$\\mu = {mean:.1f}mV \\approx {v_to_q(mean):.0f} e^-$\n$\\sigma = {stddev:.1f}mV \\approx {v_to_q(stddev):.0f} e^-$'
             ax5.text(0.75, 0.95, stats, transform=ax5.transAxes, fontsize=15,
                      verticalalignment='top', bbox=props)
             ax5.grid()
+    except RuntimeError as rte:
+        mean = np.average(bin_centers, weights=counts)
+        stddev = np.sqrt(np.average((bin_centers - mean) ** 2, weights=counts))
+        mean_error = stddev / np.sqrt(sum(counts))
+        retval['noiseGaussFit'] = (mean, stddev, mean_error)
+        print(rte)
     except Exception as ex:
         print('error fitting gaussian to noise: ', ex)
     return retval
@@ -337,8 +345,8 @@ def readSpectrum(file):
             accumulated_hist += counts
             bins = np.arange(256)
 
-            if counts[100:256].any():
-                print(f'big ToT for pixel {row}:{col}')
+            # if counts[100:256].any():
+            #     print(f'big ToT for pixel {row}:{col}')
 
             mean = np.average(bins, weights=counts)
             var = np.average((bins - mean) ** 2, weights=counts)
@@ -353,6 +361,12 @@ def plotSpectrum(accumulated_hist, meanMap):
     non_zero_bins = bins[non_zero_indices]
     non_zero_counts = accumulated_hist[non_zero_indices]
 
+	# Find the index of the bin with the highest frequency
+    max_freq_index = np.argmax(non_zero_counts)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+
+# Calculate the MPV by taking the center of the bin with the highest frequency
+    mpv = bin_centers[max_freq_index]
     mean = np.average(bins, weights=accumulated_hist)
     var = np.average((bins - mean) ** 2, weights=accumulated_hist)
     std_dev = np.sqrt(var)
@@ -364,7 +378,7 @@ def plotSpectrum(accumulated_hist, meanMap):
     ax1.bar(non_zero_bins, non_zero_counts, width=1.0, align='edge', edgecolor='black')
 
     props = dict(boxstyle='round', facecolor='wheat', alpha=.5)
-    stats = f'$\\mu$ = {mean:.1f}LSB\n$\\sigma$ = {std_dev:.1f}LSB'
+    stats = f'$\\mu$ = {mean:.1f}LSB\n$\\sigma$ = {std_dev:.1f}LSB\nMPV = {mpv}LSB'
     ax1.text(0.75, 0.95, stats, transform=ax1.transAxes, fontsize=15,
              verticalalignment='top', bbox=props)
 

@@ -33,8 +33,12 @@ if __name__ == '__main__':
         "VPBIAS": 0x25,
         "VN": 0x15
     }
+
     power_items = ['p1v8_vdda', 'p1v8_vddc', 'p1v8_vdd!', 'p1v3_vssa', 'p1v8_nw_ring', 'p1v8_vsensbus', 'p2v5d']
     # power_items = ['p1v8_vdda', 'p1v8_vddc', 'p1v8_vdd!', 'p1v3_vssa', 'p1v8_nw_ring', 'p1v8_vsensbus']
+
+    plt.rcParams['figure.figsize'] = [32, 18]
+
     data_files.sort()
     warnings.simplefilter("error", OptimizeWarning)
     warnings.filterwarnings('ignore')
@@ -89,6 +93,7 @@ if __name__ == '__main__':
     df = pd.DataFrame(powerStat)
     ax = fig.add_subplot(gs[:, 0])
     sns.lineplot(x='dac', y='p', hue='name', marker='o', data=df)
+    plt.ylim(330, 370)
     plt.axvline(x=nominalDACval, color='r', linestyle='dashdot', label=f'Nominal DAC = {nominalDACval}', linewidth=.95)
     plt.grid()
     plt.legend(loc='upper left', fontsize=12)
@@ -135,5 +140,6 @@ if __name__ == '__main__':
     secax_y.tick_params(axis='y', labelsize=13)
     ax.grid()
 
+    # plt.show()
+    plt.savefig(sys.argv[2])
 
-    plt.show()

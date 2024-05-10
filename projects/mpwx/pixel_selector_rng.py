@@ -57,16 +57,16 @@ def main():
             for j in range(64):
                 currPix = (i, j)
                 etc = ''
-                for s in config[i, j]["etc"]:
-                    etc += s.strip() + ' '
+                if config is not None:
+                    for s in config[i, j]["etc"]:
+                        etc += s.strip() + ' '
 
                 # Check if the current pixel is in the list of pixels to be preserved
                 if currPix in activePixels:
                     if config is not None:
                         line = f'{config[i, j]["row"]} {config[i, j]["col"]} {config[i, j]["mask"]} {etc}\n'
-
                     else:
-                        line = f'{config[i, j]["row"]} {config[i, j]["col"]} 0 {etc}\n'
+                        line = f'{i} {j} 0 0 0 0 -1\n'
 
                 else:
                     if config is None:
