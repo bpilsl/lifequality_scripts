@@ -9,6 +9,9 @@ from scipy.optimize import curve_fit
 from scipy.optimize import OptimizeWarning
 from mpwx_interpreter import *
 
+font_small = 14
+font_large = 24
+
 def v_to_q(x):
     # Q = C * U
     # with C ~ 2.8fF and electron charge
@@ -31,7 +34,7 @@ if __name__ == '__main__':
         thr = (float(re.search(r'thr_(\d+\.*\d*)', file).group(1))) * 1e3 - baseline  # convert to mV
         # mean, err = s_curve_stats(file, thr, len(data_files), i)
         df = readScurveData(file)
-        print(df)
+        # print(df)
         try:
             gaussFit = interpretScurve(df, doPlot=False)['halfWayGaussFit']
             mean = gaussFit[0]
@@ -57,21 +60,22 @@ if __name__ == '__main__':
             for i in range(len(x)):
                 f.write(f'{x[i]} {y[i]} {err[i]}\n')
 
-    ax = plt.subplot(111)
-    ax.errorbar(x, y, yerr=err, fmt='o', markersize=2, capsize=5, label='Data')
+    fig, ax = plt.subplots(figsize=(16, 9))
+    ax.errorbar(x, y, yerr=err, fmt='o', markersize=4, capsize=8, label='Data')
     fit_data = x * kV + dV
-    ax.plot(x, fit_data, linestyle='dashed', label=f'Fit: {kV:.4f} * x + {dV:.2f}')
+    ax.plot(x, fit_data, linestyle='dashed', label=f'Fit: $\\frac{"{"}{kV:.3f}{"}"}{"{"}mV{"}"}$ * $V_{"{"}Thr{"}"}$ + {dV:.2f}mV')
     ax.legend(loc='upper left')
-    ax.set_xlabel('Threshold [mV]', fontsize=15)
-    ax.set_ylabel(r'$\mu(V_{inj, 50})$ [mV]', fontsize=15)
-    ax.set_title('Avg. $V_{inj, 50}$ for different threshold voltages', fontsize=20)
+    ax.set_xlabel('$V_{Thr}$ [mV]', fontsize=font_small)
+    ax.set_ylabel(r'$\mu(V_{inj, 50})$ [mV]', fontsize=font_small)
+    ax.set_title('Avg. $V_{inj, 50}$ vs. threshold voltage', fontsize=font_large)
     # secax_x = ax.secondary_xaxis('top', functions=(v_to_q, q_to_v))
     # secax_x.set_xlabel('Threshold ($ke^-$)')
     secax_y = ax.secondary_yaxis('right', functions=(v_to_q, q_to_v))
-    secax_y.set_ylabel(r'$\mu(V_{inj, 50})$ [$e^-$]', fontsize=15)
-    ax.tick_params(axis='x', labelsize=13)
-    ax.tick_params(axis='y', labelsize=13)
-    secax_y.tick_params(axis='y', labelsize=13)
+    secax_y.set_ylabel(r'$\mu(V_{inj, 50})$ [$e^-$]', fontsize=font_small)
+    ax.tick_params(axis='x', labelsize=font_small)
+    ax.tick_params(axis='y', labelsize=font_small)
+    secax_y.tick_params(axis='y', labelsize=font_small)
     ax.grid()
+    plt.legend(prop={'size': font_small})
 
     plt.show()
