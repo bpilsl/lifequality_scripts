@@ -1,0 +1,11 @@
+{
+    "keys_to_extract": [
+        ["DefaultDigitizer/mpw4/pixelcharge", "Charge (e0)"],
+        ["DefaultDigitizer/mpw4/pixelcharge_adc", "ToT (LSB)"],
+        ["DetectorHistogrammer/mpw4/cluster_size/cluster_size", "ClusterSize"]
+    ],
+    "x_name": "Reverse bias voltage (V)",
+    "x_regex": "-(\\d+)V",
+    "output_file": "bias_vs_saturation_effects.png"
+}
+
