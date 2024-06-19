@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from mpwx_interpreter import *
 
 nBins = 100
-font_small = 14
-font_large = 24
+font_small = 35
+font_large = 30
 
 def parse_tdac(file, output_dict):
     with open(file, 'r') as f:
@@ -89,7 +89,7 @@ props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
 stats = (f'$\\mu$ = {mean :.1f}mV $\\approx$ {v_to_q(mean):.0f} $e^-$ \n$\\sigma$ = {stddev:.1f}mV '
          f'$\\approx$ {v_to_q(stddev):.0f} $e^-$')
 
-ax.text(0.55, 0.95, stats, transform=ax.transAxes, fontsize=font_small,
+ax.text(0.15, 0.95, stats, transform=ax.transAxes, fontsize=font_small,
         verticalalignment='top', bbox=props)
 
 # PLOT untrimmed data
@@ -108,10 +108,11 @@ secax = ax.secondary_xaxis('top', functions=(v_to_q, q_to_v))
 secax.set_xlabel('$V_{inj, 50}$ [$e^-$]', fontsize=font_small)
 plt.xlabel('$V_{inj, 50}$ [mV]', fontsize=font_small)
 plt.ylabel('Counts', fontsize=font_small)
-plt.title('50% Response', fontsize=font_large)
+# plt.title('Injection 50% Response \n(TrimDACs color coded)', fontsize=font_large)
 plt.xticks(fontsize=font_small)
 secax.tick_params(labelsize=font_small)
 plt.yticks(fontsize=font_small)
-plt.legend(prop={'size': font_small})
+plt.legend(prop={'size': font_small * .7})
+plt.gca().yaxis.set_label_coords(.03, .5)
 plt.grid()
 plt.show()

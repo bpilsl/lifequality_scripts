@@ -8,6 +8,8 @@ from scipy.optimize import curve_fit
 from scipy.optimize import OptimizeWarning
 
 sensor_dim = (64, 64)
+font_small = 15
+font_large = 20
 
 
 def sigmoid(x, L, x0, k, b):
@@ -67,9 +69,17 @@ def interpretScurve(data, **kwargs):
             fig = kwargs['figure']
         gs = GridSpec(2, 3, figure=fig)
         ax1 = fig.add_subplot(gs[:, 0])
-        ax1.set(title=kwargs['title'], xlabel=kwargs['xAxisLabel'],
-                ylabel='Number of Hits')
+        # ax1.set(title=kwargs['title'], xlabel=kwargs['xAxisLabel'],
+        #         ylabel='Number of Hits', fontsize=font_large)
+        ax1.set_title(kwargs['title'], fontsize=font_small)
+        ax1.set_xlabel(kwargs['xAxisLabel'], fontsize=font_small)
+        ax1.set_ylabel(r'Number of Hits', fontsize=font_small)
+        secax_x = ax1.secondary_xaxis('top', functions=(v_to_q, q_to_v))
+        secax_x.set_xlabel('Injection Charge [$e^-$]', fontsize=font_small)
         ax1.grid(True)
+        ax1.tick_params(axis='x', labelsize=font_small)
+        ax1.tick_params(axis='y', labelsize=font_small)
+        secax_x.tick_params(axis='x', labelsize=font_small)
     for pixel, group in data.groupby('Pixel'):
         x_data = np.array(group['Voltage'])
         y_data = np.array(group['Hits'])

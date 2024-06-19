@@ -9,8 +9,8 @@ from scipy.optimize import curve_fit
 from scipy.optimize import OptimizeWarning
 from mpwx_interpreter import *
 
-font_small = 14
-font_large = 24
+font_small = 50
+font_large = 55
 
 def v_to_q(x):
     # Q = C * U
@@ -52,22 +52,23 @@ if __name__ == '__main__':
     y = statistic[:, 1]
     err = statistic[:, 2]
 
-    kV, dV = np.polyfit(x, y, 1)
-    kQ, dQ = np.polyfit(q, y, 1)
-    print(f'Fit V vs. V {kV:.4f} * x(mV) + {dV:.4f}\nFit Q vs. V {kQ:.4f} * x(Q) + {dQ:.4f}')
+    pars = np.polyfit(x, y, 3)
+    fit = np.poly1d(pars)
+    # kQ, dQ = np.polyfit(q, y, 1)
+    print(f'Fit V vs. V {pars}')
     if len(sys.argv) > 3:
         with open(sys.argv[3], 'w') as f:
             for i in range(len(x)):
                 f.write(f'{x[i]} {y[i]} {err[i]}\n')
 
     fig, ax = plt.subplots(figsize=(16, 9))
-    ax.errorbar(x, y, yerr=err, fmt='o', markersize=4, capsize=8, label='Data')
-    fit_data = x * kV + dV
-    ax.plot(x, fit_data, linestyle='dashed', label=f'Fit: $\\frac{"{"}{kV:.3f}{"}"}{"{"}mV{"}"}$ * $V_{"{"}Thr{"}"}$ + {dV:.2f}mV')
+    ax.errorbar(x, y, yerr=err, fmt='o', markersize=10, capsize=14, label='Data')
+    fit_data = fit(x)
+    ax.plot(x, fit_data, linestyle='dashed', label=f'Linear Fit', linewidth=2.5)
     ax.legend(loc='upper left')
     ax.set_xlabel('$V_{Thr}$ [mV]', fontsize=font_small)
     ax.set_ylabel(r'$\mu(V_{inj, 50})$ [mV]', fontsize=font_small)
-    ax.set_title('Avg. $V_{inj, 50}$ vs. threshold voltage', fontsize=font_large)
+    # ax.set_title('Avg. $V_{inj, 50}$ vs. threshold voltage', fontsize=font_large)
     # secax_x = ax.secondary_xaxis('top', functions=(v_to_q, q_to_v))
     # secax_x.set_xlabel('Threshold ($ke^-$)')
     secax_y = ax.secondary_yaxis('right', functions=(v_to_q, q_to_v))
