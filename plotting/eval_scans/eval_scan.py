@@ -91,16 +91,19 @@ def main():
     
     plt.figure(figsize=(15, 10))
 
+
+
     for i, key in enumerate(keys_to_extract):
-        keyrows = df[df['Key'].str.contains(key[0])]
-        plt.subplot(3, 1, i + 1)
+        keyrows = df[df['Key'] == key[0]]
+        plt.subplot(len(keys_to_extract), 1, i + 1)
+        # breakpoint()
         
         x = keyrows['xVal']
         y = keyrows['Mean']
         if 'residuals' in key[0]:
             y = keyrows['StdDev']
         
-        yerr = df[df['Key'].str.contains(key[0])]['StdErr'].values
+        yerr = df[df['Key'] == key[0]]['StdErr'].values
         
         sns.lineplot(x=x, y=y, label='Data', marker='o')
         plt.errorbar(x, y, yerr=yerr, fmt='.', color='blue', capsize=5)
