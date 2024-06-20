@@ -17,7 +17,19 @@ def parse_arguments():
 def read_config(config_file):
     with open(config_file, 'r') as file:
         config = json.load(file)
-    return config['keys_to_extract'], config['x_name'], config['x_regex'], config['output_file']
+
+    x_range = y_range = None
+    try:
+        tmp = config['x_range']
+        x_range = tmp.split(":")
+        tmp = config['y_range']
+        y_range = tmp.split(":")
+        x_range = np.array(x_range).astype(float)
+        y_range = np.array(y_range).astype(float)
+    except Exception as e:
+        print('no lim set: ', e)
+
+    return config['keys_to_extract'], config['x_name'], config['x_regex'], config['output_file'], x_range, y_range
 
 def annotate_points(df, col_name):
     for index, row in df.iterrows():
@@ -36,7 +48,7 @@ def main():
     args = parse_arguments()
     
     root_file_list = glob.glob(f'{args.root_path_pattern}/*.root')
-    keys_to_extract, x_name, x_regex, output_file = read_config(args.config_file)
+    keys_to_extract, x_name, x_regex, output_file, x_range, y_range = read_config(args.config_file)
     
     results = {"File": [], "Key": [], "Name": [], "xVal": [], "Mean": [], "StdDev": [], "StdErr": [], "N": []}
     
@@ -100,13 +112,19 @@ def main():
         plt.grid(True, which='both')
         plt.gca().set_yticks(plt.gca().get_yticks())
         ax = plt.gca()
+
+        if len(x_range) == 2:
+            plt.xlim(x_range)
+
+        if len(y_range) == 2:
+            plt.ylim(y_range)
+
         ax.set_xticks(ax.get_xticks())
         ax.set_xticklabels(ax.get_xticks())
 
     plt.xlabel(x_name)
     plt.tight_layout()
     plt.savefig(output_file)
-    print('now showing')
     plt.show()
 
 if __name__ == "__main__":
