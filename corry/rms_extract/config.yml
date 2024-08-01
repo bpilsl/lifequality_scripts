@@ -1,0 +1,6 @@
+root_file: "/home/bernhard/cernbox/Diss/mpw4/tb/desy_2404/elba_biased.root"
+histogram_name: "AnalysisDUT/RD50_MPWx_base_0/local_residuals/residualsX"
+lower_quantile: 0.1
+upper_quantile: 99.9
+output_plot: "output_histogram.png"
+
