@@ -18,6 +18,7 @@ histogram_name = config["histogram_name"]
 lower_quantile = config["lower_quantile"]
 upper_quantile = config["upper_quantile"]
 output_plot = config["output_plot"]
+xlims = config["x_range"]
 
 # Open the ROOT file and get the histogram
 file = uproot.open(root_file)
@@ -33,7 +34,6 @@ values = np.concatenate([
     np.full(int(count), (bin_edges[i] + bin_edges[i+1]) / 2)
     for i, count in enumerate(bin_contents)
 ])
-breakpoint()
 
 # Determine the quantiles
 lower_q_value = np.percentile(values, lower_quantile)
@@ -45,6 +45,8 @@ truncated_values = values[(values >= lower_q_value) & (values <= upper_q_value)]
 # Calculate RMS
 truncated_rms = np.sqrt(np.mean(truncated_values**2))
 
+print(f'lower q ={lower_q_value} for {lower_quantile}th Percenile')
+print(f'lower q ={upper_q_value} for {upper_quantile}th Percenile')
 print(f'Truncated RMS: {truncated_rms}')
 
 # Plot the histogram and quantiles
@@ -59,6 +61,7 @@ plt.title(f'Histogram of "{histogram_name.split("/")[-1]}" with Quantiles')
 plt.xlabel('Residual Value')
 plt.ylabel('Frequency')
 plt.legend()
+plt.xlim(xlims)
 plt.grid(True)
 plt.savefig(output_plot)
 plt.show()
