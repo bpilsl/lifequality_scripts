@@ -46,10 +46,11 @@ if __name__ == '__main__':
     sStats = []
     powerStat = {'dac': [], 'name': [], 'u': [], 'i': [], 'p': []}
     for file in data_files:
-        dacMatch = re.search(r'DAC_(.+?)(\d+)', file)
+        dacMatch = re.search(r'.+_(.+?)(\d+).txt', file)
+       	#breakpoint()
         if dacMatch:
             dacName = dacMatch.group(1).upper()
-            dacVal = int(dacMatch.group(2))
+            dacVal = int(dacMatch.group(2))            
             nominalDACval = register_defaults[dacName]
         else:
             continue

@@ -29,7 +29,8 @@ def read_config(config_file):
     except Exception as e:
         print('no lim set: ', e)
 
-    return config['keys_to_extract'], config['x_name'], config['x_regex'], config['output_file'], x_range, y_range
+    return (config['keys_to_extract'], config['x_name'], config['x_regex'], config['output_file'], x_range, y_range,
+            config['do_annotate'])
 
 def annotate_points(df, col_name):
     for index, row in df.iterrows():
@@ -48,7 +49,7 @@ def main():
     args = parse_arguments()
     
     root_file_list = glob.glob(f'{args.root_path_pattern}/*.root')
-    keys_to_extract, x_name, x_regex, output_file, x_range, y_range = read_config(args.config_file)
+    keys_to_extract, x_name, x_regex, output_file, x_range, y_range, do_annotate = read_config(args.config_file)
     
     results = {"File": [], "Key": [], "Name": [], "xVal": [], "Mean": [], "StdDev": [], "StdErr": [], "N": []}
     
@@ -86,17 +87,18 @@ def main():
 
                 except KeyError:
                     print(f"Key '{key_name}' not found in file '{root_file}'")
-
+   
     df = pd.DataFrame(results)
+    print(df)    
     
     plt.figure(figsize=(15, 10))
-
-
+    print(keys_to_extract)
 
     for i, key in enumerate(keys_to_extract):
+        print('\n\n\nkey', key)
+        #breakpoint()        
         keyrows = df[df['Key'] == key[0]]
-        plt.subplot(len(keys_to_extract), 1, i + 1)
-        # breakpoint()
+        plt.subplot(len(keys_to_extract), 1, i + 1)        
         
         x = keyrows['xVal']
         y = keyrows['Mean']
@@ -111,15 +113,16 @@ def main():
         plt.xlabel('')
         plt.ylabel(key[1])
         plt.title(key[1])
-        annotate_points(df, key[0])
+        if do_annotate:
+            annotate_points(df, key[0])
         plt.grid(True, which='both')
         plt.gca().set_yticks(plt.gca().get_yticks())
         ax = plt.gca()
 
-        if len(x_range) == 2:
+        if x_range and len(x_range) == 2:
             plt.xlim(x_range)
 
-        if len(y_range) == 2:
+        if y_range and len(y_range) == 2:
             plt.ylim(y_range)
 
         ax.set_xticks(ax.get_xticks())

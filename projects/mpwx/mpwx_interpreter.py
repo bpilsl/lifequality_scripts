@@ -398,7 +398,7 @@ def plotSpectrum(accumulated_hist, meanMap):
     ax1.set_ylabel('Counts', fontsize=40)
     plt.xticks(fontsize=30)
     plt.yticks(fontsize=30)
-    plt.xlim(0, 250)
+    # plt.xlim(0, 250)
     # plt.ylim(0, 5)
 
     if multiplePixel:

@@ -54,7 +54,7 @@ for i, label in enumerate(labels):
     sns.lineplot(data=df, x='U', y='I', color=color, linewidth=2)
     # ax.errorbar(data[:, 0], data[:, 2], yerr=data[:, 3], fmt='o', capsize=6, markersize=5, label=label, color=color)
     ax.scatter(data[:, 0], data[:, 2], label=label, color=color, marker='X', s=70)
-    ax.set_xlabel('Voltage [V]', fontsize=font_small)
+    ax.set_xlabel('Reverse Bias Voltage [V]', fontsize=font_small)
     ax.set_ylabel('Current [A]', fontsize=font_small)
     ax.set_title('IV characteristics', fontsize=font_large)
     ax.set_yscale('log')

@@ -46,6 +46,7 @@ def main():
                 data['dac'].append(dac_val)
             else:
                 color = None
+                dac_name = ''
 
             hist, map = readSpectrum(file)
             non_zero_indices = hist > 0

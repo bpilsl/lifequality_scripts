@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from mpwx_interpreter import *
 
 nBins = 100
-font_small = 50
-font_large = 50
+font_small = 90
+font_large = 80
 
 def parse_tdac(file, output_dict):
     with open(file, 'r') as f:
@@ -107,8 +107,8 @@ plt.xlim(80, 200)
 secax = ax.secondary_xaxis('top', functions=(v_to_q, q_to_v))
 ax.tick_params(axis='x', pad=20)
 ax.tick_params(axis='y', pad=20)
-secax.set_xlabel('$V_{inj, 50}$ [$e^-$]', fontsize=font_small, labelpad=8)
-plt.xlabel('$V_{inj, 50}$ [mV]', fontsize=font_small, labelpad=-10)
+secax.set_xlabel('$V_{inj, 50}$ [$e^-$]', fontsize=font_small, labelpad=40)
+plt.xlabel('$V_{inj, 50}$ [mV]', fontsize=font_small, labelpad=15)
 plt.ylabel('Counts', fontsize=font_small)
 # plt.title('Injection 50% Response \n(TrimDACs color coded)', fontsize=font_large)
 plt.xticks(fontsize=font_small)
