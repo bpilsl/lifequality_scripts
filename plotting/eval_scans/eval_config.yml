@@ -1,0 +1,17 @@
+keys_to_extract:
+  - key: AnalysisDUT/RD50_MPWx_0/local_residuals/residualsX
+    name: "$\\sigma_x$"
+    #x_range: [0, 20]
+    #y_range: [-10, 10]
+  - key: AnalysisDUT/RD50_MPWx_0/local_residuals/residualsY
+    name: "$\\sigma_y$"
+    #x_range: [0, 20]
+    #y_range: [-15, 15]
+  - key: AnalysisEfficiency/RD50_MPWx_0/chipEfficiencyMap_trackPos_TProfile
+    name: "$\\epsilon$"
+    #x_range: [0, 20]
+    #y_range: [95, 101]
+x_name: "Spatial Cuts rel."
+x_regex: "-(\\d+)_"
+output_file: "spatial_cut_effects.png"
+#do_annotate: true
