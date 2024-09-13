@@ -22,33 +22,6 @@ def parse_arguments():
 
         return parser.parse_args()
 
-
-def read_config(config_file):
-    with open(config_file, 'r') as file:
-        config = yaml.safe_load(file)  # Load YAML file
-
-    x_range = y_range = None
-    try:
-        # Safely get 'x_range' and 'y_range', or default to None if missing
-        x_range_str = config.get('x_range', None)
-        y_range_str = config.get('y_range', None)
-
-        # Process x_range if it exists
-        if x_range_str:
-            x_range = np.array(x_range_str.split(":")).astype(float)
-        # Process y_range if it exists
-        if y_range_str:
-            y_range = np.array(y_range_str.split(":")).astype(float)
-
-    except Exception as e:
-        print('No limit set: ', e)
-
-    # Safely get 'do_annotate', default to False if missing
-    do_annotate = config.get('do_annotate', False)
-
-    return (config['keys_to_extract'], config['x_name'], config['x_regex'], config['output_file'], x_range, y_range,
-            do_annotate)
-
 def annotate_points(df, col_name):
     for index, row in df.iterrows():
         if col_name != row['Key']:
@@ -109,11 +82,21 @@ def extractRMSForRresiduals(hist, quantile=0.5, plot=False):
 def main():
     args = parse_arguments()
     
-    root_file_list = glob.glob(f'{args.root_path_pattern}/*.root')
+    root_file_list = sorted(glob.glob(f'{args.root_path_pattern}/*.root'))
     config_file = args.config_file
     if not config_file:
         config_file = glob.glob(f'{args.root_path_pattern}/*.yml')[0]
-    keys_to_extract, x_name, x_regex, output_file, x_range, y_range, do_annotate = read_config(config_file)
+
+    with open(config_file, 'r') as file:
+        config = yaml.safe_load(file)  # Load YAML file
+
+    keys_to_extract = config['keys_to_extract']
+    x_name = config['x_name']
+    x_regex = config['x_regex']
+    do_annotate = config.get('do_annotate', False)
+    output_img = config.get('output_img', None)
+    output_csv = config.get('output_csv', None)
+
     
     results = {"File": [], "Key": [], "Name": [], "xVal": [], "Mean": [], "StdDev": [], "StdErr": [], "N": []}
 
@@ -161,6 +144,9 @@ def main():
 
     df = pd.DataFrame(results)
 
+    if output_csv:
+        df.to_csv(output_csv)
+
     plt.figure(figsize=(15, 10))
 
     # Plot for each key
@@ -189,10 +175,10 @@ def main():
         x_range = key_info.get('x_range', None)  # Check if 'x_range' exists in key_info
         y_range = key_info.get('y_range', None)  # Check if 'y_range' exists in key_info
 
-        if x_range is not None and len(x_range) == 2:
+        if x_range is not None:
             plt.xlim(x_range)
 
-        if y_range is not None and len(y_range) == 2:
+        if y_range is not None:
             plt.ylim(y_range)
 
         ax = plt.gca()
@@ -201,7 +187,8 @@ def main():
 
     plt.xlabel(x_name)
     plt.tight_layout()
-    plt.savefig(output_file)
+    if output_img:
+        plt.savefig(output_img)
     plt.show()
 
 

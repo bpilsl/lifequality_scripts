@@ -13,5 +13,6 @@ keys_to_extract:
     #y_range: [95, 101]
 x_name: "Spatial Cuts rel."
 x_regex: "-(\\d+)_"
-output_file: "spatial_cut_effects.png"
+output_img: "spatial_cut_effects.png"
+output_csv: "data.csv"
 #do_annotate: true
