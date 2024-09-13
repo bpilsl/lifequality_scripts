@@ -46,7 +46,7 @@ def plot_iv_curve(file_path):
     plt.plot(voltage_smu, current_smu, color='red', label='Line plot')
 
     # Log scale for y-axis
-    #plt.yscale('log')
+    plt.yscale('log')
 
     # Labels and title
     plt.xlabel('Voltage (V)')
