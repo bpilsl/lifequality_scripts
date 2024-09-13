@@ -1,0 +1,8 @@
+keys_to_interpret:
+  - 'AnalysisDUT/RD50_MPWx_0/local_residuals/residualsX'
+  - 'AnalysisDUT/RD50_MPWx_0/local_residuals/residualsY'
+data_biased: 'data_biased.csv'
+data_unbiased: 'data_unbiased.csv'
+output_plot: 'output_plot.png'
+xlabel: 'spatial_cut_rel'
+ylabel: 'Value [$\mu m$]'
