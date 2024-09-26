@@ -47,7 +47,8 @@ if __name__ == '__main__':
             interpretScurve(data)
             powerReport = getPowerReport(file)
             for i in powerReport:
-                print(f'{i["name"]}: U = {i["U"]}V, I = {i["I"]}mA, P = {i["P"]}mW')
+                pass
+                #print(f'{i["name"]}: U = {i["U"]}V, I = {i["I"]}mA, P = {i["P"]}mW')
 
         elif data_type == 'tdac_map':
             data, _ = readHitmap(file)

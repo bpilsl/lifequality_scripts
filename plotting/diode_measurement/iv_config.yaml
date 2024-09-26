@@ -1,0 +1,11 @@
+- file: 'neg20'
+  temp: 20
+  sensor: 'w3-1E16'
+
+- file: 'neg10'
+  temp: 20
+  sensor: 'w3-1E16'
+
+- file: '0'
+  temp: 20
+  sensor: 'w3-1E16'
