@@ -6,6 +6,8 @@ import numpy as np
 import argparse
 import os.path
 import re
+import yaml
+from sympy.physics.units import temperature
 
 
 # Function to determine where the actual data starts
@@ -29,7 +31,7 @@ def get_temperature(filename):
     return temperature
 
 # Function to process the data and generate the plot
-def plot_iv_curve(file_path, temperature, first):
+def plot_iv_curve(file_path, first, **kwargs):
     # Determine the number of header lines to skip
     skip_lines = skip_header_lines(file_path)
     
@@ -51,20 +53,21 @@ def plot_iv_curve(file_path, temperature, first):
 
     # Plotting
     # Normalize the values between 0 and 1 for the colormap
-    norm = Normalize(vmin=-20, vmax=0)  # Normalizing to the range -20 to 0
+    norm = Normalize(vmin=kwargs['min_temperature'], vmax=kwargs['max_temperature'])  # Normalizing to the range -20 to 0
     cmap = matplotlib.colormaps['plasma']
-    color = cmap(norm(temperature))
+    color = cmap(norm(kwargs['temperature']))
 
     # Scatter plot
     # plt.scatter(voltage_smu, current_smu, color=color, label=f'IV at {temperature} $^\circ$')
 
-    label = 'IV '
+    label = kwargs['sensor']
+    fmt = kwargs['sensor_fmt_map'][kwargs['sensor']]
     # print(temperature)
-    if np.isnan(temperature):
-        label += 'not annealed'
-        color = 'black'
-    else:
-        label += f'annealed at {temperature}$^\circ C$'
+    # if np.isnan(kwargs['temperature']):
+    #     label += 'not annealed'
+    #     color = 'black'
+    # else:
+    #     label += f'annealed at {kwargs["temperature"]}$^\circ C$'
 
     if first:
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -76,16 +79,21 @@ def plot_iv_curve(file_path, temperature, first):
         # plt.colorbar(sm, label='Temperature ($^\circ$C)')  # Show the colorbar with temperature in °C
 
     # Line plot
-    plt.plot(voltage_smu, current_smu, color=color, label=label)
+    plt.plot(voltage_smu, current_smu, color=color, label=label, linestyle=fmt)
 
 
     # Log scale for y-axis
     plt.yscale('log')
+    # Access the y_range and ensure it's converted to floats (if necessary)
+    y_range = [float(i) for i in kwargs['y_range']]  # Ensure float conversion
+    x_range = [float(i) for i in kwargs['x_range']]
+    plt.ylim(y_range)
+    plt.xlim(x_range)
 
     # Labels and title
     plt.xlabel('Reverse Bias Voltage (V)')
     plt.ylabel('Current (A)')
-    plt.title('IV Curve')
+    plt.title(kwargs['title'])
     plt.legend()
 
     # Show plot
@@ -96,17 +104,24 @@ def plot_iv_curve(file_path, temperature, first):
 # Main function to handle command-line arguments
 def main():
     # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="Plot IV Curve from file")
-    parser.add_argument("input_files", nargs='+', help="Path to the input file(s)")
+    parser = argparse.ArgumentParser(description="Plot IV Curve from file(s)")
+    parser.add_argument("config", help="yaml style config file")
+
 
     # Get the file path from command-line arguments
     args = parser.parse_args()
 
+    with open(args.config, 'r') as file:
+        config = yaml.safe_load(file)
+
+
     # Call the plot function with the provided file
     first = True
-    for file in args.input_files:
-        t = get_temperature(file)
-        plot_iv_curve(file, t, first)
+    for m in config['measurements']:
+        t = m['temperature']
+        file = m['file']
+        sensor = m['sensor']
+        plot_iv_curve(file, first, temperature=t, sensor=sensor, **config)
         first = False
     plt.show()
 

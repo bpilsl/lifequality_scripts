@@ -1,11 +1,36 @@
-- file: 'neg20'
-  temp: 20
-  sensor: 'w3-1E16'
+min_temperature: -20
+max_temperature: 0
+y_range: [1E-7, 1E-4]
+x_range: [0, 800]
+title: 'IV measurements of backside biased samples'
+sensor_fmt_map:
+   'w3-1E14 Bsb-Annealed' : '-'
+   'w3-1E15 Bsb-Annealed' : ':'
+   'w3-1E16 Bsb-Annealed' : '--'
+   'w8-1E15 Bsb-Annealed' : '-.'
+   'w3-1E16 Bsb-Not Annealed' : '-'
 
-- file: 'neg10'
-  temp: 20
-  sensor: 'w3-1E16'
+measurements:
+  - file: '/home/bernhard/cernbox/Diss/mpw4/lab/irradiated/ivs/backsideBiased/w3-1E14/w3_1E14_bsb_0_an-2024-09-18T17-07-17.txt'
+    temperature: 0
+    sensor: 'w3-1E16 Bsb-Annealed'
 
-- file: '0'
-  temp: 20
-  sensor: 'w3-1E16'
+  - file: '/home/bernhard/cernbox/Diss/mpw4/lab/irradiated/ivs/backsideBiased/w3-1E14/w3_1E14_bsb_neg5_an-2024-09-18T16-51-30.txt'
+    temperature: -5
+    sensor: 'w3-1E16 Bsb-Annealed'
+
+  - file: '/home/bernhard/cernbox/Diss/mpw4/lab/irradiated/ivs/backsideBiased/w3-1E14/w3_1E14_bsb_neg10_an-2024-09-18T16-39-03.txt'
+    temperature: -10
+    sensor: 'w3-1E16 Bsb-Annealed'
+
+  - file: '/home/bernhard/cernbox/Diss/mpw4/lab/irradiated/ivs/backsideBiased/w3-1E14/w3_1E14_bsb_neg15_an-2024-09-18T15-38-14.txt'
+    temperature: -15
+    sensor: 'w3-1E16 Bsb-Annealed'
+
+  - file: '/home/bernhard/cernbox/Diss/mpw4/lab/irradiated/ivs/backsideBiased/w3-1E14/w3_1E14_bsb_neg20_an-2024-09-18T13-17-56.txt'
+    temperature: -20
+    sensor: 'w3-1E16 Bsb-Annealed'
+
+  - file: '/home/bernhard/cernbox/Diss/mpw4/lab/irradiated/ivs/backsideBiased/w3-1E14/w3_1E14_bsb_neg20-2024-09-17T11-09-59.txt'
+    temperature: -20
+    sensor: 'w3-1E16 Bsb-Not Annealed'
