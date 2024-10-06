@@ -7,8 +7,11 @@ import argparse
 import os.path
 import re
 import yaml
+from reportlab.lib.colors import transparent
 from sympy.physics.units import temperature
 
+
+used_sensors = []
 
 # Function to determine where the actual data starts
 def skip_header_lines(file_path):
@@ -19,16 +22,6 @@ def skip_header_lines(file_path):
     for i, line in enumerate(lines):
         if line.startswith("timestamp[s]"):
             return i
-
-def get_temperature(filename):
-    match = re.search(r'_(neg)*(\d+)_', filename)
-    temperature = np.nan
-    if match:
-        sign = +1
-        if match.group(1):
-            sign = -1
-        temperature = sign * float(match.group(2))
-    return temperature
 
 # Function to process the data and generate the plot
 def plot_iv_curve(file_path, first, **kwargs):
@@ -60,17 +53,20 @@ def plot_iv_curve(file_path, first, **kwargs):
     # Scatter plot
     # plt.scatter(voltage_smu, current_smu, color=color, label=f'IV at {temperature} $^\circ$')
 
-    label = kwargs['sensor']
+    sensor = kwargs['sensor']
+    if sensor in used_sensors:
+        label = ''
+    else:
+        used_sensors.append(sensor)
+        label = sensor
     fmt = kwargs['sensor_fmt_map'][kwargs['sensor']]
-    # print(temperature)
-    # if np.isnan(kwargs['temperature']):
-    #     label += 'not annealed'
-    #     color = 'black'
-    # else:
-    #     label += f'annealed at {kwargs["temperature"]}$^\circ C$'
 
+    font_size = kwargs['font_size']
     if first:
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(16, 11))
+        matplotlib.rc('font', size=font_size)
+        plt.yticks(fontsize=font_size)
+        plt.xticks(fontsize=font_size)
         # Add a color bar to show the color scale representing temperatures
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])  # ScalarMappable needs an array
@@ -79,7 +75,7 @@ def plot_iv_curve(file_path, first, **kwargs):
         # plt.colorbar(sm, label='Temperature ($^\circ$C)')  # Show the colorbar with temperature in °C
 
     # Line plot
-    plt.plot(voltage_smu, current_smu, color=color, label=label, linestyle=fmt)
+    plt.plot(voltage_smu, current_smu, color=color, label=label, linestyle=fmt, linewidth=5)
 
 
     # Log scale for y-axis
@@ -91,8 +87,8 @@ def plot_iv_curve(file_path, first, **kwargs):
     plt.xlim(x_range)
 
     # Labels and title
-    plt.xlabel('Reverse Bias Voltage (V)')
-    plt.ylabel('Current (A)')
+    plt.xlabel('Reverse Bias Voltage (V)', fontsize= font_size)
+    plt.ylabel('Current (A)', fontsize= font_size)
     plt.title(kwargs['title'])
     plt.legend()
 
@@ -123,6 +119,8 @@ def main():
         sensor = m['sensor']
         plot_iv_curve(file, first, temperature=t, sensor=sensor, **config)
         first = False
+    plt.savefig(config['output_file'], transparent=True)
+    print('saved to ', config['output_file'])
     plt.show()
 
 if __name__ == "__main__":
