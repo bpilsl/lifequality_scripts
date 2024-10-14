@@ -112,6 +112,14 @@ def main():
                     elif isinstance(tkey, uproot.behaviors.TH1.TH1):
                         hist_np = tkey.to_numpy()
                         unjagged_bins = (hist_np[1][:-1] + hist_np[1][1:]) / 2
+                        # breakpoint()
+                        if 'efficiency' in key_info['key'].lower():
+                            #unjagging to bin center leads in the TH1D efficiency histograms of Corry to the last bin
+                            #being at 1.0025 and therefore >100%. You get the problem.
+                            #Fix the last bin to 1.0
+                            unjagged_bins[-1] = 1.0
+
+
                         N = np.sum(hist_np[0])
                         mean_val = np.sum(hist_np[0] * unjagged_bins) / N
                         std_dev_val = np.sqrt(np.sum(hist_np[0] * (unjagged_bins - mean_val) ** 2) / N)
@@ -159,7 +167,10 @@ def main():
         yerr = keyrows['StdErr'].values
 
         sns.lineplot(x=x, y=y, label='Data', marker='o')
-        plt.errorbar(x, y, yerr=yerr, fmt='.', color='blue', capsize=5)
+        # breakpoint()
+        if not 'efficiency' in key_info['key'].lower():
+                pass
+            # plt.errorbar(x, y, yerr=yerr, fmt='.', color='blue', capsize=5)
 
         plt.xlabel('')
         plt.ylabel(key_info['name'])
