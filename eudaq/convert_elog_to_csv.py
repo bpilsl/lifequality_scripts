@@ -30,8 +30,8 @@ base_path = args.base_path
 output_file = args.output_file
 
 #keys to extract from the elog
-keys_to_extract = ["Run Number", "DUT", "thr", "HV", "scan-val", "Subject"]   
-keys_to_write = ["RunNumber", "DUT", "thr", "HV", "scan-val", "Subject", "telescopeGeometry"]
+keys_to_extract = ["Run Number", "DUT", "thr", "HV", "scan-val", "Subject", "Duration_min", "Biasing"]   
+keys_to_write = ["RunNumber", "DUT", "thr", "HV", "scan-val", "Subject", "Duration_min", "Biasing", "geometry", "outputDir"]
 #ids to extract from elog
 ids = np.arange(args.border_start,args.border_end)
 
