@@ -10,17 +10,24 @@ import yaml
 
 
 def parse_arguments():
-        parser = argparse.ArgumentParser(description='Process ROOT files and extract data.')
+    parser = argparse.ArgumentParser(description='Process ROOT files and extract data.')
 
-        # Required positional argument
-        parser.add_argument('root_path_pattern', type=str, help='Path to ROOT files (e.g., ".")')
+    # Required positional argument that takes an arbitrary number of ROOT file paths (results in a list)
+    parser.add_argument('root_path_pattern', type=str, nargs='+', help='Path(s) to ROOT files.')
 
-        # Optional config file argument
-        parser.add_argument('config_file', type=str, nargs='?', default=None,
-                            help='Path to the configuration file specifying keys to extract (optional). If not '
-                                 'specified yml in "root_path_pattern" will be globed')
+    # Required config file argument specified with -c
+    parser.add_argument('-c', '--config_file', type=str, required=True,
+                        help='Path to the configuration file specifying keys to extract.')
 
-        return parser.parse_args()
+    # Optional output image (PNG) argument
+    parser.add_argument('--png', dest='output_img', type=str, default=None,
+                        help='Path to save the output image (PNG format).')
+
+    # Optional output CSV argument
+    parser.add_argument('--csv', dest='output_csv', type=str, default=None,
+                        help='Path to save the output data (CSV format).')
+
+    return parser.parse_args()
 
 def annotate_points(df, col_name):
     for index, row in df.iterrows():
@@ -78,26 +85,14 @@ def extractRMSForRresiduals(hist, quantile=0.5, plot=False):
         plt.show()
     return  truncated_rms
 
-def main():
-    args = parse_arguments()
-    
-    root_file_list = sorted(glob.glob(f'{args.root_path_pattern}/*.root'))
-    config_file = args.config_file
-    if not config_file:
-        config_file = glob.glob(f'{args.root_path_pattern}/*.yml')[0]
-
-    with open(config_file, 'r') as file:
-        config = yaml.safe_load(file)  # Load YAML file
-
+def roots2Df(path, config):
+    root_file_list = sorted(glob.glob(f'{path}/*.root'))
     keys_to_extract = config['keys_to_extract']
     x_name = config['x_name']
     x_regex = config['x_regex']
     do_annotate = config.get('do_annotate', False)
-    output_img = config.get('output_img', None)
-    output_csv = config.get('output_csv', None)
 
-    
-    results = {"File": [], "Key": [], "Name": [], "xVal": [], "Mean": [], "StdDev": [], "StdErr": [], "N": []}
+    results = {"File": [], "Key": [], "Name": [], "xVal": [], "Mean": [], "StdDev": [], "StdErr": [], "N": [], "Origin": []}
 
     for root_file in root_file_list:
         with uproot.open(root_file) as file:
@@ -112,7 +107,6 @@ def main():
                     elif isinstance(tkey, uproot.behaviors.TH1.TH1):
                         hist_np = tkey.to_numpy()
                         unjagged_bins = (hist_np[1][:-1] + hist_np[1][1:]) / 2
-                        # breakpoint()
                         if 'efficiency' in key_info['key'].lower():
                             #unjagging to bin center leads in the TH1D efficiency histograms of Corry to the last bin
                             #being at 1.0025 and therefore >100%. You get the problem.
@@ -145,55 +139,86 @@ def main():
                     results['Name'].append(key_info['name'])
                     results["N"].append(N)
                     results["StdErr"].append(std_dev_val / np.sqrt(N))
+                    results["Origin"].append(path)
 
                 except KeyError:
                     print(f"Key '{key_info['key']}' not found in file '{root_file}'")
 
     df = pd.DataFrame(results)
+    return df
 
-    if output_csv:
-        df.to_csv(output_csv)
+
+def main():
+    args = parse_arguments()
+
+    config_file = args.config_file
+
+    with open(config_file, 'r') as file:
+        config = yaml.safe_load(file)  # Load YAML file
+
+    keys_to_extract = config['keys_to_extract']
+    x_name = config['x_name']
+    x_regex = config['x_regex']
+    do_annotate = config.get('do_annotate', False)
+    output_img = config.get('output_img', None)
+    if args.output_img:
+        output_img = args.output_img
+        print('Overwriting output image to ', output_img)
+
+    output_csv = config.get('output_csv', None)
+    if args.output_csv:
+        output_img = args.output_csv
+        print('Overwriting output CSV to ', output_csv)
+
+
+    dfs = []
+    for rpp in args.root_path_pattern:
+        dfs.append(roots2Df(rpp, config))
+
+    # if output_csv:
+    #     df.to_csv(output_csv)
 
     plt.figure(figsize=(15, 10))
 
     # Plot for each key
     for i, key_info in enumerate(keys_to_extract):
-        keyrows = df[df['Key'] == key_info['key']]
-        plt.subplot(len(keys_to_extract), 1, i + 1)
+        for df in dfs:
+            keyrows = df[df['Key'] == key_info['key']]
+            plt.subplot(len(keys_to_extract), 1, i + 1)
 
-        x = keyrows['xVal']
-        y = keyrows['Mean']
+            x = keyrows['xVal']
+            y = keyrows['Mean']
 
-        yerr = keyrows['StdErr'].values
+            yerr = keyrows['StdErr'].values
 
-        sns.lineplot(x=x, y=y, label='Data', marker='o')
-        # breakpoint()
-        if not 'efficiency' in key_info['key'].lower():
-                pass
-            # plt.errorbar(x, y, yerr=yerr, fmt='.', color='blue', capsize=5)
+            sns.lineplot(x=x, y=y, label=df['Origin'][0], marker='o')
+            # breakpoint()
+            if not 'efficiency' in key_info['key'].lower():
+                    pass
+                # plt.errorbar(x, y, yerr=yerr, fmt='.', color='blue', capsize=5)
 
-        plt.xlabel('')
-        plt.ylabel(key_info['name'])
-        plt.title(key_info['name'])
+            plt.xlabel('')
+            plt.ylabel(key_info['name'])
+            plt.title(key_info['name'])
 
-        if do_annotate:
-            annotate_points(df, key_info['key'])
+            if do_annotate:
+                annotate_points(df, key_info['key'])
 
-        plt.grid(True, which='both')
+            plt.grid(True, which='both')
 
-        # Setting x_range and y_range for individual plots, if specified in the key_info
-        x_range = key_info.get('x_range', None)  # Check if 'x_range' exists in key_info
-        y_range = key_info.get('y_range', None)  # Check if 'y_range' exists in key_info
+            # Setting x_range and y_range for individual plots, if specified in the key_info
+            x_range = key_info.get('x_range', None)  # Check if 'x_range' exists in key_info
+            y_range = key_info.get('y_range', None)  # Check if 'y_range' exists in key_info
 
-        if x_range is not None:
-            plt.xlim(x_range)
+            if x_range is not None:
+                plt.xlim(x_range)
 
-        if y_range is not None:
-            plt.ylim(y_range)
+            if y_range is not None:
+                plt.ylim(y_range)
 
-        ax = plt.gca()
-        ax.set_xticks(ax.get_xticks())
-        ax.set_xticklabels(ax.get_xticks())
+            ax = plt.gca()
+            ax.set_xticks(ax.get_xticks())
+            ax.set_xticklabels(ax.get_xticks())
 
     plt.xlabel(x_name)
     plt.tight_layout()
