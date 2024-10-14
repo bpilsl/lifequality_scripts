@@ -52,9 +52,8 @@ def extractRMSForRresiduals(hist, quantile=0.5, plot=False):
 
     # Filter residuals within the quantiles
     truncated_values = values[(values >= lower_q_value) & (values <= upper_q_value)]
-
     # Calculate RMS
-    truncated_rms = np.sqrt(np.mean(truncated_values ** 2))
+    truncated_rms = np.std(truncated_values)
 
     if plot:
 
