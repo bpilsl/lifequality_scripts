@@ -57,8 +57,8 @@ def extractRMSForRresiduals(hist, quantile=0.5, plot=False):
 
     if plot:
 
-        print(f'lower q ={lower_q_value} for {lower_quantile}th Percenile')
-        print(f'lower q ={upper_q_value} for {upper_quantile}th Percenile')
+        print(f'lower q ={lower_q_value} for {lower_quantile}th Percentile')
+        print(f'upper q ={upper_q_value} for {upper_quantile}th Percetnile')
         print(f'Truncated RMS: {truncated_rms}')
         # Plot the histogram and quantiles
         plt.figure(figsize=(10, 6))
