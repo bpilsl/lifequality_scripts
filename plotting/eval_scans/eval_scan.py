@@ -92,8 +92,6 @@ def extractEfficiency(root_file, key):
     if not efficiency:
         print("TEfficiency object not found in the file!")
         return None
-    else:
-        print("TEfficiency object retrieved successfully.")
 
     # Access the properties of the TEfficiency object
     if isinstance(efficiency, ROOT.TEfficiency):
