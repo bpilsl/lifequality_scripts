@@ -1,3 +1,4 @@
+import ROOT
 import uproot
 import pandas as pd
 import glob
@@ -85,6 +86,32 @@ def extractRMSForRresiduals(hist, quantile=0.5, plot=False):
         plt.show()
     return  truncated_rms
 
+def extractEfficiency(root_file, key):
+    file = ROOT.TFile(root_file, 'READ')
+    efficiency = file.Get(key)
+    if not efficiency:
+        print("TEfficiency object not found in the file!")
+        return None
+    else:
+        print("TEfficiency object retrieved successfully.")
+
+    # Access the properties of the TEfficiency object
+    if isinstance(efficiency, ROOT.TEfficiency):
+            i = 1 # Corry stores effi in first bin
+            eff_value = efficiency.GetEfficiency(i)
+            eff_error_low = efficiency.GetEfficiencyErrorLow(i)
+            eff_error_up = efficiency.GetEfficiencyErrorUp(i)
+
+            print(f"Bin {i}: Efficiency = {eff_value}, Error Low = {eff_error_low}, Error Up = {eff_error_up}")
+    else:
+        print("The object is not a TEfficiency object.")
+        return  None
+
+    # Close the file
+    file.Close()
+    return eff_value, eff_error_low, eff_error_up
+
+
 def roots2Df(path, config):
     root_file_list = sorted(glob.glob(f'{path}/*.root'))
     keys_to_extract = config['keys_to_extract']
@@ -97,52 +124,55 @@ def roots2Df(path, config):
     for root_file in root_file_list:
         with uproot.open(root_file) as file:
             for key_info in keys_to_extract:
-                try:
-                    tkey = file[key_info['key']]
-                    std_dev_val = 0
-                    N = 0
-                    if 'residuals' in key_info['key']:
-                        mean_val = extractRMSForRresiduals(tkey)
-                        N = 1
-                    elif isinstance(tkey, uproot.behaviors.TH1.TH1):
-                        hist_np = tkey.to_numpy()
-                        unjagged_bins = (hist_np[1][:-1] + hist_np[1][1:]) / 2
-                        if 'efficiency' in key_info['key'].lower():
-                            #unjagging to bin center leads in the TH1D efficiency histograms of Corry to the last bin
-                            #being at 1.0025 and therefore >100%. You get the problem.
-                            #Fix the last bin to 1.0
-                            unjagged_bins[-1] = 1.0
+                tkey = None
+                mean_val = 0
 
+                if 'eTotalEfficiency' in key_info['key']:
+                    eff_value, eff_error_low, eff_error_up = extractEfficiency(root_file, key_info['key'])
+                    mean_val = eff_value
+                    print('YOOO')
+                    print(f'0 {mean_val}')
+                else:
+                    try:
+                            tkey = file[key_info['key']]
+                    except Exception as e:
+                            print(e)
+                            continue
 
-                        N = np.sum(hist_np[0])
-                        mean_val = np.sum(hist_np[0] * unjagged_bins) / N
-                        std_dev_val = np.sqrt(np.sum(hist_np[0] * (unjagged_bins - mean_val) ** 2) / N)
+                std_dev_val = 0
+                N = 0
+                print(f'1 {mean_val}')
+                if 'residuals' in key_info['key']:
+                    mean_val = extractRMSForRresiduals(tkey)
+                    N = 1
+                elif isinstance(tkey, uproot.behaviors.TH1.TH1):
+                    hist_np = tkey.to_numpy()
+                    unjagged_bins = (hist_np[1][:-1] + hist_np[1][1:]) / 2
 
-                    elif 'efficiency' in key_info['key'].lower() and isinstance(tkey,
-                                                                                uproot.behaviors.TProfile2D.TProfile2D):
-                        vals = tkey.values()
-                        # efficiency profile is embedded in 'ring' of 0 (edges not taken into account)
-                        vals = vals[1:-1]  # remove upper and lower 0 band
-                        vals = vals[:, 1:-1]  # remove left and right 0 band
-                        mean_val = np.average(vals) * 100
-                        std_dev_val = np.std(vals) * 100
-                        N = 1
-                    else:
-                        continue
+                    N = np.sum(hist_np[0])
+                    mean_val = np.sum(hist_np[0] * unjagged_bins) / N
+                    std_dev_val = np.sqrt(np.sum(hist_np[0] * (unjagged_bins - mean_val) ** 2) / N)
 
-                    # Extract values for results
-                    results["xVal"].append(float(re.search(x_regex, root_file).group(1)))
-                    results["Mean"].append(mean_val)
-                    results['StdDev'].append(std_dev_val)
-                    results['File'].append(root_file)
-                    results['Key'].append(key_info['key'])
-                    results['Name'].append(key_info['name'])
-                    results["N"].append(N)
-                    results["StdErr"].append(std_dev_val / np.sqrt(N))
-                    results["Origin"].append(path)
-
-                except KeyError:
-                    print(f"Key '{key_info['key']}' not found in file '{root_file}'")
+                elif 'efficiency' in key_info['key'].lower() and isinstance(tkey,
+                                                                            uproot.behaviors.TProfile2D.TProfile2D):
+                    vals = tkey.values()
+                    # efficiency profile is embedded in 'ring' of 0 (edges not taken into account)
+                    vals = vals[1:-1]  # remove upper and lower 0 band
+                    vals = vals[:, 1:-1]  # remove left and right 0 band
+                    mean_val = np.average(vals) * 100
+                    std_dev_val = np.std(vals) * 100
+                    N = 1
+                print(f'2 {mean_val}')
+                # Extract values for results
+                results["xVal"].append(float(re.search(x_regex, root_file).group(1)))
+                results["Mean"].append(mean_val)
+                results['StdDev'].append(std_dev_val)
+                results['File'].append(root_file)
+                results['Key'].append(key_info['key'])
+                results['Name'].append(key_info['name'])
+                results["N"].append(N)
+                results["StdErr"].append(std_dev_val / np.sqrt(N))
+                results["Origin"].append(path)
 
     df = pd.DataFrame(results)
     return df
