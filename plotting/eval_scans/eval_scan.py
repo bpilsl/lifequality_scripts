@@ -102,7 +102,7 @@ def extractEfficiency(root_file, key):
             eff_error_low = efficiency.GetEfficiencyErrorLow(i)
             eff_error_up = efficiency.GetEfficiencyErrorUp(i)
 
-            print(f"Bin {i}: Efficiency = {eff_value}, Error Low = {eff_error_low}, Error Up = {eff_error_up}")
+            # print(f"Bin {i}: Efficiency = {eff_value}, Error Low = {eff_error_low}, Error Up = {eff_error_up}")
     else:
         print("The object is not a TEfficiency object.")
         return  None
@@ -115,9 +115,7 @@ def extractEfficiency(root_file, key):
 def roots2Df(path, config):
     root_file_list = sorted(glob.glob(f'{path}/*.root'))
     keys_to_extract = config['keys_to_extract']
-    x_name = config['x_name']
     x_regex = config['x_regex']
-    do_annotate = config.get('do_annotate', False)
 
     results = {"File": [], "Key": [], "Name": [], "xVal": [], "Mean": [], "StdDev": [], "StdErr": [], "N": [], "Origin": []}
 
@@ -130,8 +128,6 @@ def roots2Df(path, config):
                 if 'eTotalEfficiency' in key_info['key']:
                     eff_value, eff_error_low, eff_error_up = extractEfficiency(root_file, key_info['key'])
                     mean_val = eff_value
-                    print('YOOO')
-                    print(f'0 {mean_val}')
                 else:
                     try:
                             tkey = file[key_info['key']]
@@ -141,7 +137,6 @@ def roots2Df(path, config):
 
                 std_dev_val = 0
                 N = 0
-                print(f'1 {mean_val}')
                 if 'residuals' in key_info['key']:
                     mean_val = extractRMSForRresiduals(tkey)
                     N = 1
@@ -153,16 +148,6 @@ def roots2Df(path, config):
                     mean_val = np.sum(hist_np[0] * unjagged_bins) / N
                     std_dev_val = np.sqrt(np.sum(hist_np[0] * (unjagged_bins - mean_val) ** 2) / N)
 
-                elif 'efficiency' in key_info['key'].lower() and isinstance(tkey,
-                                                                            uproot.behaviors.TProfile2D.TProfile2D):
-                    vals = tkey.values()
-                    # efficiency profile is embedded in 'ring' of 0 (edges not taken into account)
-                    vals = vals[1:-1]  # remove upper and lower 0 band
-                    vals = vals[:, 1:-1]  # remove left and right 0 band
-                    mean_val = np.average(vals) * 100
-                    std_dev_val = np.std(vals) * 100
-                    N = 1
-                print(f'2 {mean_val}')
                 # Extract values for results
                 results["xVal"].append(float(re.search(x_regex, root_file).group(1)))
                 results["Mean"].append(mean_val)
@@ -188,7 +173,7 @@ def main():
 
     keys_to_extract = config['keys_to_extract']
     x_name = config['x_name']
-    x_regex = config['x_regex']
+    # x_regex = config['x_regex']
     do_annotate = config.get('do_annotate', False)
     output_img = config.get('output_img', None)
     if args.output_img:
@@ -224,8 +209,9 @@ def main():
             sns.lineplot(x=x, y=y, label=df['Origin'][0], marker='o')
             # breakpoint()
             if not 'efficiency' in key_info['key'].lower():
-                    pass
                 # plt.errorbar(x, y, yerr=yerr, fmt='.', color='blue', capsize=5)
+                pass
+
 
             plt.xlabel('')
             plt.ylabel(key_info['name'])
@@ -236,9 +222,8 @@ def main():
 
             plt.grid(True, which='both')
 
-            # Setting x_range and y_range for individual plots, if specified in the key_info
-            x_range = key_info.get('x_range', None)  # Check if 'x_range' exists in key_info
-            y_range = key_info.get('y_range', None)  # Check if 'y_range' exists in key_info
+            x_range = key_info.get('x_range', None)
+            y_range = key_info.get('y_range', None)
 
             if x_range is not None:
                 plt.xlim(x_range)
