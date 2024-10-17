@@ -1,3 +1,5 @@
+from csv import excel
+
 import ROOT
 import uproot
 import pandas as pd
@@ -89,6 +91,7 @@ def extractRMSForRresiduals(hist, quantile=0.5, plot=False):
 def extractEfficiency(root_file, key):
     file = ROOT.TFile(root_file, 'READ')
     efficiency = file.Get(key)
+
     if not efficiency:
         print("TEfficiency object not found in the file!")
         return None
@@ -123,16 +126,15 @@ def roots2Df(path, config):
                 tkey = None
                 mean_val = 0
 
-                if 'eTotalEfficiency' in key_info['key']:
-                    eff_value, eff_error_low, eff_error_up = extractEfficiency(root_file, key_info['key'])
-                    mean_val = eff_value
-                else:
-                    try:
+                try:
+                    if 'eTotalEfficiency' in key_info['key']:
+                        eff_value, eff_error_low, eff_error_up = extractEfficiency(root_file, key_info['key'])
+                        mean_val = eff_value
+                    else:
                             tkey = file[key_info['key']]
-                    except Exception as e:
-                            print(e)
-                            continue
-
+                except Exception as e:
+                    print(f'{root_file}: {key_info["key"]} -> {e}')
+                    continue
                 std_dev_val = 0
                 N = 0
                 if 'residuals' in key_info['key']:
