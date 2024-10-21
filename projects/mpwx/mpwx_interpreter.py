@@ -25,21 +25,34 @@ def inverseSigmoid(y, L, x0, k, b):
     return - 1 / k * np.log(L / (y - b) - 1) + x0
 
 
-def v_to_q(v):
+def v_to_q(v, pixel=None, capMap=None):
     #  v should be given in mV
-    return v * 1e-3 * 2.8e-15 / 1.6e-19
+    # breakpoint()
+    cap = 2.8e-15
+    if pixel is not None and capMap is not None:
+        cap = capMap[pixel[0]][pixel[1]]
+
+    return v * 1e-3 * cap / 1.6e-19
 
 
-def q_to_v(q):
+def q_to_v(q, pixel=None, capMap=None):
     # q passed in units of e-; returns voltage in mV
-    return q * 1.6e-19 / 2.8e-15 * 1e3
+
+    cap = 2.8e-15
+    if pixel is not None and capMap is not None:
+        cap = capMap[pixel[0]][pixel[1]]
+
+    return q * 1.6e-19 / cap * 1e3
 
 
 def interpretScurve(data, **kwargs):
     defaultKwargs = {'doPlot': True, 'figure': None, 'xAxisLabel': 'Injection Voltage [mV]', 'yAxisLabel': 'Hits',
-                     'title': 'S-curve scan'}
+                     'title': 'S-curve scan', 'cap_map': None}
     kwargs = {**defaultKwargs, **kwargs}
     doPlot = kwargs['doPlot']
+    capMap = kwargs['cap_map']
+    if capMap is not None:
+        kwargs['xAxisLabel'] = 'Charge [$ke^-$]'
     retval = {'sigmoidFit': [], 'halfWayGaussFit': None, 'noiseGaussFit': None, 'vt50Map': None}
 
     def find_transition_index(arr):
@@ -74,24 +87,33 @@ def interpretScurve(data, **kwargs):
         ax1.set_title(kwargs['title'], fontsize=font_small)
         ax1.set_xlabel(kwargs['xAxisLabel'], fontsize=font_small)
         ax1.set_ylabel(r'Number of Hits', fontsize=font_small)
-        secax_x = ax1.secondary_xaxis('top', functions=(v_to_q, q_to_v))
-        secax_x.set_xlabel('Injection Charge [$e^-$]', fontsize=font_small)
+        if capMap is None:
+            secax_x = ax1.secondary_xaxis('top', functions=(v_to_q, q_to_v))
+            secax_x.set_xlabel('Injection Charge [$e^-$]', fontsize=font_small)
+            secax_x.tick_params(axis='x', labelsize=font_small)
         ax1.grid(True)
         ax1.tick_params(axis='x', labelsize=font_small)
         ax1.tick_params(axis='y', labelsize=font_small)
-        secax_x.tick_params(axis='x', labelsize=font_small)
     for pixel, group in data.groupby('Pixel'):
-        x_data = np.array(group['Voltage'])
+        v = np.array(group['Voltage'])
+        if capMap is not None:
+            index = pixel.strip().split(':')
+            row = int(index[0])
+            col = int(index[1])
+            q = v_to_q(v, (row, col), capMap)
+            x_data = q * 1e-3
+        else:
+            x_data = v
         y_data = np.array(group['Hits'])
         if doPlot:
             ax1.scatter(x_data, y_data, marker='.', label=f"Pixel {pixel}")
             plt.xlim(min(x_data), max(x_data))
+            # continue
         try:
             # print('interpreter: ', x_data, y_data)
             x0index = find_transition_index(y_data)
             if not x0index:
                 print('Problem finding initial fit params')
-                continue
             x00 = x_data[x0index]
             k0 = np.sign(y_data[-1] - y_data[0])
             p0 = [max(y_data), x00, k0, min(y_data)]  # this is a mandatory initial guess
@@ -463,6 +485,30 @@ def parse_tdac(file):
                 tdac = int(splitted[col])
                 map['tdac'][row][col - 1] = tdac
     return map
+
+def parse_capmap(file):
+    '''
+    Method parsing a file containig calibrated values for the inpixel injection capacitance
+    The file should contain 64 * 64 lines (1 pixel -> 1 line) and
+    has the format "<row>:<col> <calibrated C in units of F>"
+    :param file: file to read the calibration values from
+    :return: a 2D numpy array(64 x 64) containing the capacitance values in F for all pixels
+    '''
+    map = np.zeros((64, 64))
+    regex = re.compile(r'(\d+):(\d+) (.+)')
+    with open(file) as f:
+        for line in f:
+            match = regex.match(line)
+            # print(match, line)
+            if match:
+                row = int(match.group(1))
+                col = int(match.group(2))
+                cap = float(match.group(3))
+                map[row][col] = cap
+    return map
+
+
+
 
 
 if __name__ == '__main__':

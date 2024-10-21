@@ -19,11 +19,18 @@ def deduce_data_type(file):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Plotting suite for data of the RD50-MPWx series")
     parser.add_argument('-s', '--save_path', help='Path to save plot to')
+    parser.add_argument('-c', '--calib_file', nargs='?', default=None, help='Path to capacitance calibration file')
     parser.add_argument('-t', '--type', default=None, choices=['hm', 's', 'n', 'c'], help='Type of the data (options: hm, s, n, c)')
     parser.add_argument('files', nargs='+', help='Input file(s)')
     args = parser.parse_args()
     save_path = args.save_path
     t = args.type
+    calib_file = args.calib_file
+
+    cap_map = None
+    if calib_file:
+        cap_map = parse_capmap(calib_file)
+
     data_type = None
     if t:
         if t == 'hm':
@@ -44,10 +51,10 @@ if __name__ == '__main__':
             plotHitmap(data)
         elif data_type == 'scurve':
             data = readScurveData(file)
-            interpretScurve(data)
-            powerReport = getPowerReport(file)
-            for i in powerReport:
-                pass
+            interpretScurve(data, cap_map=cap_map)
+            # powerReport = getPowerReport(file)
+            # for i in powerReport:
+            #     pass
                 #print(f'{i["name"]}: U = {i["U"]}V, I = {i["I"]}mA, P = {i["P"]}mW')
 
         elif data_type == 'tdac_map':
