@@ -15,4 +15,7 @@ x_name: "Spatial Cuts rel."
 x_regex: "-(\\d+)_"
 output_img: "spatial_cut_effects.png"
 output_csv: "data.csv"
+#log_x: true
+#log_y: false
 #do_annotate: true
+#plot_errorbars: true

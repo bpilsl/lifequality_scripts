@@ -1,3 +1,4 @@
+import os.path
 from csv import excel
 
 import ROOT
@@ -10,6 +11,7 @@ import seaborn as sns
 import re
 import argparse
 import yaml
+import matplotlib.ticker as ticker
 
 
 def parse_arguments():
@@ -118,24 +120,27 @@ def roots2Df(path, config):
     keys_to_extract = config['keys_to_extract']
     x_regex = config['x_regex']
 
-    results = {"File": [], "Key": [], "Name": [], "xVal": [], "Mean": [], "StdDev": [], "StdErr": [], "N": [], "Origin": []}
+    results = {"File": [], "Key": [], "Name": [], "xVal": [], "Mean": [], "StdDev": [], "StdErr": [], "N": [], "Origin": [], 'errorLow': [], 'errorUp': []}
 
     for root_file in root_file_list:
         with uproot.open(root_file) as file:
             for key_info in keys_to_extract:
                 tkey = None
                 mean_val = 0
+                std_dev_val = None
+                error_up = None
+                error_low = None
 
                 try:
                     if 'eTotalEfficiency' in key_info['key']:
-                        eff_value, eff_error_low, eff_error_up = extractEfficiency(root_file, key_info['key'])
+                        eff_value, error_low, error_up = extractEfficiency(root_file, key_info['key'])
                         mean_val = eff_value
                     else:
                             tkey = file[key_info['key']]
                 except Exception as e:
                     print(f'{root_file}: {key_info["key"]} -> {e}')
                     continue
-                std_dev_val = 0
+                std_dev_val = None
                 N = 0
                 if 'residuals' in key_info['key']:
                     mean_val = extractRMSForRresiduals(tkey)
@@ -148,15 +153,27 @@ def roots2Df(path, config):
                     mean_val = np.sum(hist_np[0] * unjagged_bins) / N
                     std_dev_val = np.sqrt(np.sum(hist_np[0] * (unjagged_bins - mean_val) ** 2) / N)
 
+                std_error = None
+                if std_dev_val:
+                    std_error = std_dev_val / np.sqrt(N)
+                # if we don't have separate (asymmetric) values for the error bars let's assume they are symmetric and
+                # use the std error
+                if not error_up:
+                    error_up = std_error
+                if not error_low:
+                    error_low = std_error
+
                 # Extract values for results
-                results["xVal"].append(float(re.search(x_regex, root_file).group(1)))
+                results["xVal"].append(float(re.search(x_regex, os.path.basename(root_file)).group(1)))
                 results["Mean"].append(mean_val)
                 results['StdDev'].append(std_dev_val)
                 results['File'].append(root_file)
                 results['Key'].append(key_info['key'])
                 results['Name'].append(key_info['name'])
                 results["N"].append(N)
-                results["StdErr"].append(std_dev_val / np.sqrt(N))
+                results["StdErr"].append(std_error)
+                results['errorLow'].append(error_low)
+                results['errorUp'].append(error_up)
                 results["Origin"].append(path)
 
     df = pd.DataFrame(results)
@@ -204,13 +221,12 @@ def main():
             x = keyrows['xVal']
             y = keyrows['Mean']
 
-            yerr = keyrows['StdErr'].values
+            yerr = (keyrows['errorLow'].values, keyrows['errorUp'].values)
 
-            sns.lineplot(x=x, y=y, label=df['Origin'][0], marker='o')
-            # breakpoint()
-            if not 'efficiency' in key_info['key'].lower():
-                # plt.errorbar(x, y, yerr=yerr, fmt='.', color='blue', capsize=5)
-                pass
+            plot = sns.lineplot(x=x, y=y, label=df['Origin'][0], marker='o')
+            color = plot.get_lines()[-1].get_color() # get used color to also use it for error bars
+            if config.get('plot_errorbars', True):
+                plt.errorbar(x, y, yerr=yerr, fmt='.', capsize=5, color=color)
 
 
             plt.xlabel('')
@@ -232,8 +248,17 @@ def main():
                 plt.ylim(y_range)
 
             ax = plt.gca()
-            ax.set_xticks(ax.get_xticks())
-            ax.set_xticklabels(ax.get_xticks())
+            if config.get('log_x', False):
+                ax.set_xscale('log')
+                ax.xaxis.set_major_formatter(ticker.LogFormatterSciNotation())
+                # ax.tick_params(axis='x', which='major', labelsize=10)
+            if config.get('log_y', False):
+                ax.set_yscale('log')
+                ax.yaxis.set_major_formatter(ticker.LogFormatterSciNotation())
+                # ax.tick_params(axis='y', which='major', labelsize=10)
+
+            # ax.set_xticks(ax.get_xticks())
+            # ax.set_xticklabels(ax.get_xticks())
 
     plt.xlabel(x_name)
     plt.tight_layout()
