@@ -14,10 +14,10 @@ VISA_ADDRESS = f"TCPIP::{IP_ADDRESS}::INSTR"
 # Set desired record length (adjust based on oscilloscope capability)
 RECORD_LENGTH = 2500  # Example: 2500 points
 
-def fetch_waveform_data(oscilloscope):
+def fetch_waveform_data(oscilloscope, channel=1):
     try:
         # Set up the oscilloscope for waveform data acquisition
-        oscilloscope.write("DATa:SOUrce CH1")    # Select Channel 1
+        oscilloscope.write(f"DATa:SOUrce CH{channel}")    # Select Channel 1
         oscilloscope.write("DATa:ENCdg ASCii")   # Set data encoding to ASCII
         oscilloscope.write("DATa:WIDth 1")       # Set data width to 1 byte per sample (if supported)
         
@@ -50,13 +50,13 @@ def fetch_waveform_data(oscilloscope):
         print(f"An error occurred while fetching waveform: {e}")
         return None, None
 
-def save_to_csv(filename, time_data, waveform_data):
+def save_to_csv(filename, time_data, ch1, ch2):
     try:
         with open(filename, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["Time (s)", "Voltage (V)"])
-            for t, v in zip(time_data, waveform_data):
-                writer.writerow([t, v])
+            writer.writerow(["Time (s)", "Ch1 (V)", "Ch2 (V)"])
+            for t, v1, v2 in zip(time_data, ch1, ch2):
+                writer.writerow([t, v1, v2])
         print(f"Waveform data saved to {filename}")
     except Exception as e:
         print(f"Failed to save CSV: {e}")
@@ -80,15 +80,13 @@ def main():
                 filename = f"waveform_data_trigger_{trigger_count}.csv"
 
                 # Fetch and save waveform data on trigger
-                time_data, waveform_data = fetch_waveform_data(oscilloscope)
-                if time_data is not None and waveform_data is not None:
-                    save_to_csv(filename, time_data, waveform_data)
+                time_data, ch1 = fetch_waveform_data(oscilloscope, 1)
+                time_data, ch2 = fetch_waveform_data(oscilloscope, 2)
+                if time_data is not None and ch1 is not None:
+                    save_to_csv(filename, time_data, ch1, ch2)
 
                 # Wait for the next trigger
                 print(f"Trigger {trigger_count} processed, waiting for the next trigger...")
-
-            # Delay to avoid polling too fast
-            time.sleep(0.1)
 
     except KeyboardInterrupt:
         print("\nStopping monitoring due to user interruption.")
