@@ -8,7 +8,7 @@ import os.path
 import re
 import yaml
 from reportlab.lib.colors import transparent
-from sympy.physics.units import temperature
+from matplotlib.ticker import EngFormatter
 
 
 used_sensors = []
@@ -33,7 +33,7 @@ def plot_iv_curve(file_path, first, **kwargs):
     
 
     # Load the data from the file, skipping the non-CSV-compliant header
-    data = pd.read_csv(file_path, delim_whitespace=True, skiprows=skip_lines)
+    data = pd.read_csv(file_path, sep='\\s+', skiprows=skip_lines)
     f = open(file_path)
     for i, line in enumerate(f):
         if i <= skip_lines:
@@ -63,23 +63,28 @@ def plot_iv_curve(file_path, first, **kwargs):
 
     font_size = kwargs['font_size']
     if first:
-        fig, ax = plt.subplots(figsize=(16, 11))
+        fig, ax = plt.subplots(figsize=(20, 11))    
         matplotlib.rc('font', size=font_size)
         plt.yticks(fontsize=font_size)
         plt.xticks(fontsize=font_size)
+
+        plt.yscale('log')
+        formatter = EngFormatter(unit='')
+        ax.yaxis.set_major_formatter(formatter)            
+        formatter = EngFormatter(unit='')
+        ax.xaxis.set_major_formatter(formatter)                    
         # Add a color bar to show the color scale representing temperatures
+
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])  # ScalarMappable needs an array
         cbar = fig.colorbar(sm, ax=ax)  # Use the ax argument to link the colorbar to the plot
-        cbar.set_label('Temperature ($^\circ$C)')  # Label for the colorbar
+        cbar.set_label('Temperature ($^\\circ$C)')  # Label for the colorbar
         # plt.colorbar(sm, label='Temperature ($^\circ$C)')  # Show the colorbar with temperature in °C
 
     # Line plot
     plt.plot(voltage_smu, current_smu, color=color, label=label, linestyle=fmt, linewidth=5)
 
-
     # Log scale for y-axis
-    plt.yscale('log')
     # Access the y_range and ensure it's converted to floats (if necessary)
     y_range = [float(i) for i in kwargs['y_range']]  # Ensure float conversion
     x_range = [float(i) for i in kwargs['x_range']]
@@ -88,14 +93,15 @@ def plot_iv_curve(file_path, first, **kwargs):
 
     # Labels and title
     plt.xlabel('Reverse Bias Voltage (V)', fontsize= font_size)
-    plt.ylabel('Current (A)', fontsize= font_size)
+    plt.ylabel('Leakage-Current (A)', fontsize= font_size)
     plt.title(kwargs['title'])
-    plt.legend()
+    plt.legend(loc='best')
 
     # Show plot
     plt.grid(True, which="both", ls="--")
     output_file = 'figs/' + os.path.basename(file_path) + '.png'
     #plt.savefig(output_file)
+
 
 # Main function to handle command-line arguments
 def main():
