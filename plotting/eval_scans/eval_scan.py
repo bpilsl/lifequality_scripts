@@ -190,7 +190,20 @@ def main():
 
     keys_to_extract = config['keys_to_extract']
     x_name = config['x_name']
-    # x_regex = config['x_regex']
+    fontsize = config.get('fontsize', None)
+
+    if fontsize is not None:
+        plt.rcParams.update({
+            'font.size': fontsize,  # Base font size
+            'axes.titlesize': fontsize,  # Title size
+            'axes.labelsize': fontsize,  # X/Y label size
+            'xtick.labelsize': fontsize,  # X tick label size
+            'ytick.labelsize': fontsize,  # Y tick label size
+            'legend.fontsize': fontsize,  # Legend text size
+            'legend.title_fontsize': fontsize  # Legend title size
+        })
+
+
     do_annotate = config.get('do_annotate', False)
     output_img = config.get('output_img', None)
     if args.output_img:
@@ -231,15 +244,15 @@ def main():
 
             plt.xlabel('')
             plt.ylabel(key_info['name'])
-            plt.title(key_info['name'])
+            plt.title(config.get('title'), None)
 
             if do_annotate:
                 annotate_points(df, key_info['key'])
 
             plt.grid(True, which='both')
-
             x_range = key_info.get('x_range', None)
             y_range = key_info.get('y_range', None)
+
 
             if x_range is not None:
                 plt.xlim(x_range)
@@ -260,7 +273,9 @@ def main():
             # ax.set_xticks(ax.get_xticks())
             # ax.set_xticklabels(ax.get_xticks())
 
-    plt.xlabel(x_name)
+    plt.xlabel(x_name)    
+
+
     plt.tight_layout()
     if output_img:
         plt.savefig(output_img)
