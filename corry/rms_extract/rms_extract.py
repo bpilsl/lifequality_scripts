@@ -50,16 +50,27 @@ print(f'lower q ={upper_q_value} for {upper_quantile}th Percenile')
 print(f'Truncated RMS: {truncated_rms}')
 
 # Plot the histogram and quantiles
-plt.figure(figsize=(10, 6))
+fontsize = 28
+plt.rcParams.update({
+    'font.size': fontsize,             # Base font size
+    'axes.titlesize': fontsize,        # Title size
+    'axes.labelsize': fontsize,        # X/Y label size
+    'xtick.labelsize': fontsize,       # X tick label size
+    'ytick.labelsize': fontsize,       # Y tick label size
+    'legend.fontsize': fontsize,       # Legend text size
+    'legend.title_fontsize': fontsize  # Legend title size
+})
+
+plt.figure(figsize=(16, 9))
 plt.hist(values, bins=bin_edges, alpha=0.7, label='Residuals', edgecolor='black')
 
 # Add lines for quantiles
 plt.axvline(x=lower_q_value, color='r', linestyle='--', linewidth=2, label=f'{lower_quantile}th Percentile')
 plt.axvline(x=upper_q_value, color='g', linestyle='--', linewidth=2, label=f'{upper_quantile}th Percentile')
 
-plt.title(f'Histogram of "{histogram_name.split("/")[-1]}" with Quantiles')
+plt.title(f'"{histogram_name.split("/")[-1]}" with Quantiles')
 plt.xlabel('Residual Value')
-plt.ylabel('Frequency')
+plt.ylabel('Counts')
 plt.legend()
 plt.xlim(xlims)
 plt.grid(True)

@@ -6,7 +6,6 @@ import yaml
 import argparse
 from matplotlib import cm
 
-
 def load_config(config_path):
     """Load YAML configuration."""
     with open(config_path, 'r') as file:

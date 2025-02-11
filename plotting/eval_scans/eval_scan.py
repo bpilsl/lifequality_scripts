@@ -13,6 +13,8 @@ import argparse
 import yaml
 import matplotlib.ticker as ticker
 
+config = None
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Process ROOT files and extract data.')
@@ -34,7 +36,7 @@ def parse_arguments():
 
     return parser.parse_args()
 
-def annotate_points(df, col_name):
+def annotate_points(df, col_name, color=None):
     for index, row in df.iterrows():
         if col_name != row['Key']:
             continue
@@ -42,9 +44,9 @@ def annotate_points(df, col_name):
         y = row['Mean']
         val = f'{row["Mean"]:.3f}'
 
-        plt.annotate(val, (x, y), textcoords="offset points", xytext=(15, 15), ha='center', fontsize=8)
+        plt.annotate(val, (x, y), textcoords="offset points", xytext=(10, 10), ha='center', fontsize=10, color=color)
 
-def extractRMSForRresiduals(hist, quantile=0.5, plot=False):
+def extractRMSForResiduals(hist, quantile=0.5, plot=False):
     # Extract bin contents (residuals) and bin edges
     bin_contents = hist.values()
     bin_edges = hist.axis().edges()
@@ -56,7 +58,7 @@ def extractRMSForRresiduals(hist, quantile=0.5, plot=False):
         for i, count in enumerate(bin_contents)
     ])
 
-    # Determine the quantiles
+    # Determine the quantiles    with open(config_file, 'r') as file:
     lower_quantile = quantile
     upper_quantile = 100 - quantile
     lower_q_value = np.percentile(values, lower_quantile)
@@ -73,16 +75,17 @@ def extractRMSForRresiduals(hist, quantile=0.5, plot=False):
         print(f'upper q ={upper_q_value} for {upper_quantile}th Percetnile')
         print(f'Truncated RMS: {truncated_rms}')
         # Plot the histogram and quantiles
-        plt.figure(figsize=(10, 6))
-        plt.hist(values, bins=bin_edges, alpha=0.7, label='Residuals', edgecolor='black')
+        plt.figure(figsize=(10, 10))
+        plt.hist(values, bins=bin_edges, alpha=0.7, label='Residuals', edgecolor='black', color='black')
 
         # Add lines for quantiles
         plt.axvline(x=lower_q_value, color='r', linestyle='--', linewidth=2, label=f'{lower_quantile}th Percentile')
         plt.axvline(x=upper_q_value, color='g', linestyle='--', linewidth=2, label=f'{upper_quantile}th Percentile')
 
-        plt.title(f'Histogram of "bla" with Quantiles')
-        plt.xlabel('Residual Value')
-        plt.ylabel('Frequency')
+        plt.xlim((lower_q_value * 2, upper_q_value * 2))
+        plt.title(f'Spatial residuals')
+        plt.xlabel(r'$x_{Track} - x_{DUT}$ [$\mu m$]')
+        plt.ylabel('# Events')
         plt.legend()
         # plt.xlim(xlims)
         plt.grid(True)
@@ -115,72 +118,102 @@ def extractEfficiency(root_file, key):
     return eff_value, eff_error_low, eff_error_up
 
 
+import uproot
+import glob
+import os
+import re
+import numpy as np
+import pandas as pd
+
 def roots2Df(path, config):
     root_file_list = sorted(glob.glob(f'{path}/*.root'))
-    keys_to_extract = config['keys_to_extract']
+    plots = config['plots']
     x_regex = config['x_regex']
 
     results = {"File": [], "Key": [], "Name": [], "xVal": [], "Mean": [], "StdDev": [], "StdErr": [], "N": [], "Origin": [], 'errorLow': [], 'errorUp': []}
 
     for root_file in root_file_list:
+        print('processing ', root_file)
         with uproot.open(root_file) as file:
-            for key_info in keys_to_extract:
-                tkey = None
-                mean_val = 0
-                std_dev_val = None
-                error_up = None
-                error_low = None
-
-                try:
-                    if 'eTotalEfficiency' in key_info['key']:
-                        eff_value, error_low, error_up = extractEfficiency(root_file, key_info['key'])
-                        mean_val = eff_value
-                    else:
-                            tkey = file[key_info['key']]
-                except Exception as e:
-                    print(f'{root_file}: {key_info["key"]} -> {e}')
-                    continue
-                std_dev_val = None
-                N = 0
-                if 'residuals' in key_info['key']:
-                    mean_val = extractRMSForRresiduals(tkey)
-                    N = 1
-                elif isinstance(tkey, uproot.behaviors.TH1.TH1):
-                    hist_np = tkey.to_numpy()
-                    unjagged_bins = (hist_np[1][:-1] + hist_np[1][1:]) / 2
-
-                    N = np.sum(hist_np[0])
-                    mean_val = np.sum(hist_np[0] * unjagged_bins) / N
-                    std_dev_val = np.sqrt(np.sum(hist_np[0] * (unjagged_bins - mean_val) ** 2) / N)
-
-                std_error = None
-                if std_dev_val:
-                    std_error = std_dev_val / np.sqrt(N)
-                # if we don't have separate (asymmetric) values for the error bars let's assume they are symmetric and
-                # use the std error
-                if not error_up:
-                    error_up = std_error
-                if not error_low:
-                    error_low = std_error
-
-                # Extract values for results
-                results["xVal"].append(float(re.search(x_regex, os.path.basename(root_file)).group(1)))
-                results["Mean"].append(mean_val)
-                results['StdDev'].append(std_dev_val)
-                results['File'].append(root_file)
-                results['Key'].append(key_info['key'])
-                results['Name'].append(key_info['name'])
-                results["N"].append(N)
-                results["StdErr"].append(std_error)
-                results['errorLow'].append(error_low)
-                results['errorUp'].append(error_up)
-                results["Origin"].append(path)
+            for plot_info in plots:
+                keys = plot_info['keys'] if isinstance(plot_info['keys'], list) else [plot_info['keys']]
+                
+                for i, key in enumerate(keys):
+                    tkey = None
+                    mean_val = 0
+                    std_dev_val = None
+                    error_up = None
+                    error_low = None
+                    name = plot_info['names'][i]
+                    
+                    try:
+                        if 'eTotalEfficiency' in key:
+                            eff_value, error_low, error_up = extractEfficiency(root_file, key)
+                            mean_val = eff_value
+                        else:
+                            tkey = file[key]
+                    except Exception as e:
+                        print(f'{root_file}: {key} -> {e}')
+                        continue
+                    
+                    std_dev_val = None
+                    N = 0
+                    if 'residuals' in key:
+                        mean_val = extractRMSForResiduals(tkey, plot=False)
+                        N = 1
+                    elif isinstance(tkey, uproot.behaviors.TH1.TH1):
+                        hist_np = tkey.to_numpy()
+                        unjagged_bins = (hist_np[1][:-1] + hist_np[1][1:]) / 2
+                        
+                        N = np.sum(hist_np[0])
+                        mean_val = np.sum(hist_np[0] * unjagged_bins) / N
+                        print(key, root_file, mean_val)
+                        std_dev_val = np.sqrt(np.sum(hist_np[0] * (unjagged_bins - mean_val) ** 2) / N)
+                    
+                    std_error = None
+                    if std_dev_val:
+                        std_error = std_dev_val / np.sqrt(N)
+                    
+                    if not error_up:
+                        error_up = std_error
+                    if not error_low:
+                        error_low = std_error
+                    
+                    results["xVal"].append(float(re.search(x_regex, os.path.basename(root_file)).group(1)))
+                    results["Mean"].append(mean_val)
+                    results['StdDev'].append(std_dev_val)
+                    results['File'].append(root_file)
+                    results['Key'].append(key)
+                    results['Name'].append(name)
+                    results["N"].append(N)
+                    results["StdErr"].append(std_error)
+                    results['errorLow'].append(error_low)
+                    results['errorUp'].append(error_up)
+                    results["Origin"].append(path)
 
     df = pd.DataFrame(results)
     return df
 
 
+# Define the transformation function
+def primary_to_secondary(x):
+    coeffs = config["polynomial_coefficients"]
+    return np.polyval(coeffs, np.asarray(x))  # Ensure input is an array
+
+# Define an approximate inverse function
+def secondary_to_primary(x2):
+    coeffs = config["polynomial_coefficients"]
+
+    if len(coeffs) == 2:  # If it's a linear function, invert directly
+        a, b = coeffs
+        return (np.asarray(x2) - b) / a
+
+    x_values = np.linspace(0, 10, 1000)
+    y_values = np.polyval(coeffs, x_values)
+    return np.interp(x2, y_values, x_values)  # Interpolate inverse
+
 def main():
+    global config  # Add this line
     args = parse_arguments()
 
     config_file = args.config_file
@@ -188,9 +221,10 @@ def main():
     with open(config_file, 'r') as file:
         config = yaml.safe_load(file)  # Load YAML file
 
-    keys_to_extract = config['keys_to_extract']
+    plots = config['plots']
     x_name = config['x_name']
     fontsize = config.get('fontsize', None)
+
 
     if fontsize is not None:
         plt.rcParams.update({
@@ -212,68 +246,87 @@ def main():
 
     output_csv = config.get('output_csv', None)
     if args.output_csv:
-        output_img = args.output_csv
+        output_csv = args.output_csv
         print('Overwriting output CSV to ', output_csv)
 
-
     dfs = []
-    for rpp in args.root_path_pattern:
+    for i, rpp in enumerate(args.root_path_pattern):
         dfs.append(roots2Df(rpp, config))
 
-    # if output_csv:
-    #     df.to_csv(output_csv)
+    if output_csv:
+        dfs[i].to_csv(f'{output_csv}_{i}.csv')
 
-    plt.figure(figsize=(15, 10))
+    size = config.get('figsize', ())
+    size = (size[0], size[1])
+    fig = plt.figure(figsize=size)
+    show_legend = config.get('plot_legend', True)
 
     # Plot for each key
-    for i, key_info in enumerate(keys_to_extract):
+    for i, plot_info in enumerate(plots):
         for df in dfs:
-            keyrows = df[df['Key'] == key_info['key']]
-            plt.subplot(len(keys_to_extract), 1, i + 1)
+            keys = plot_info['keys'] if isinstance(plot_info['keys'], list) else [plot_info['keys']]
+            
+            ax1 = fig.add_subplot(len(plots), 1, i + 1)
 
-            x = keyrows['xVal']
-            y = keyrows['Mean']
+            if "x2label" in config and 'polynomial_coefficients' in config:
+                ax2 = ax1.secondary_xaxis("top", functions=(primary_to_secondary, secondary_to_primary))
+                ax2.set_xlabel(config["x2label"])
+            for j, key in enumerate(keys):                   
+                ax = ax1
 
-            yerr = (keyrows['errorLow'].values, keyrows['errorUp'].values)
+                colors = sns.color_palette('colorblind')
+                grid_styles = ['-', '--', '-.', ':', '.']
+                grid_style = grid_styles[j % len(grid_styles)]
+                color = colors[j]
+                if j > 0:
+                    ax = ax1.twinx()
 
-            plot = sns.lineplot(x=x, y=y, label=df['Origin'][0], marker='o')
-            color = plot.get_lines()[-1].get_color() # get used color to also use it for error bars
-            if config.get('plot_errorbars', True):
-                plt.errorbar(x, y, yerr=yerr, fmt='.', capsize=5, color=color)
+                keyrows = df[df['Key'] == key]
+
+                x = keyrows['xVal']
+                y = keyrows['Mean']
+
+                yerr = (keyrows['errorLow'].values, keyrows['errorUp'].values)            
+                legend = 'auto' if show_legend else None
+
+                plot = sns.lineplot(x=x, y=y, label=df['Origin'][0], marker='o', ax=ax, color=color, legend=legend)                
+                # color = plot.get_lines()[-1].get_color() # get used color to also use it for error bars
+                # ax.yaxis.label.set_color(color)
+                # ax.tick_params(axis='y', colors=color)
+                # ax.spines['left'].set_color(color)
+                if config.get('plot_errorbars', True):
+                    plt.errorbar(x, y, yerr=yerr, fmt='.', capsize=5, color=color)
+
+                ax.set_ylabel(keyrows['Name'].iloc[0])
+                ax.set_title(config.get('title'), None)
+
+                if do_annotate:
+                    annotate_points(df, key, color=color)
+
+                plt.grid(True, which='both', linestyle=grid_style)
+                x_range = plot_info.get('x_range', None)
+                y_range = plot_info.get('y_range', None)
 
 
-            plt.xlabel('')
-            plt.ylabel(key_info['name'])
-            plt.title(config.get('title'), None)
+                if x_range is not None:
+                    plt.xlim(x_range)
 
-            if do_annotate:
-                annotate_points(df, key_info['key'])
+                if y_range is not None:
+                    plt.ylim(y_range)
 
-            plt.grid(True, which='both')
-            x_range = key_info.get('x_range', None)
-            y_range = key_info.get('y_range', None)
+                ax = plt.gca()
+                if config.get('log_x', False):
+                    ax.set_xscale('log')
+                    ax.xaxis.set_major_formatter(ticker.LogFormatterSciNotation())
+                    # ax.tick_params(axis='x', which='major', labelsize=10)
+                if config.get('log_y', False):
+                    ax.set_yscale('log')
+                    ax.yaxis.set_major_formatter(ticker.LogFormatterSciNotation())
+                    # ax.tick_params(axis='y', which='major', labelsize=10)
 
-
-            if x_range is not None:
-                plt.xlim(x_range)
-
-            if y_range is not None:
-                plt.ylim(y_range)
-
-            ax = plt.gca()
-            if config.get('log_x', False):
-                ax.set_xscale('log')
-                ax.xaxis.set_major_formatter(ticker.LogFormatterSciNotation())
-                # ax.tick_params(axis='x', which='major', labelsize=10)
-            if config.get('log_y', False):
-                ax.set_yscale('log')
-                ax.yaxis.set_major_formatter(ticker.LogFormatterSciNotation())
-                # ax.tick_params(axis='y', which='major', labelsize=10)
-
-            # ax.set_xticks(ax.get_xticks())
-            # ax.set_xticklabels(ax.get_xticks())
-
-    plt.xlabel(x_name)    
+                # ax.set_xticks(ax.get_xticks())
+                # ax.set_xticklabels(ax.get_xticks())
+                ax.set_xlabel(x_name)       
 
 
     plt.tight_layout()
