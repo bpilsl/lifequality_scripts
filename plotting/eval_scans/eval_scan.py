@@ -20,7 +20,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='Process ROOT files and extract data.')
 
     # Required positional argument that takes an arbitrary number of ROOT file paths (results in a list)
-    parser.add_argument('root_path_pattern', type=str, nargs='+', help='Path(s) to ROOT files.')
+    parser.add_argument('root_path_pattern', type=str, nargs='*', help='Path(s) to ROOT files.', default=None)
 
     # Required config file argument specified with -c
     parser.add_argument('-c', '--config_file', type=str, required=True,
@@ -250,53 +250,98 @@ def main():
         print('Overwriting output CSV to ', output_csv)
 
     dfs = []
-    for i, rpp in enumerate(args.root_path_pattern):
-        dfs.append(roots2Df(rpp, config))
 
-    if output_csv:
-        dfs[i].to_csv(f'{output_csv}_{i}.csv')
+    data = []
+    if 'inputs' in config:
+        for input in config['inputs']:
+            tmp = input
+            tmp['data'] = roots2Df(input['path'], config)
+            data.append(tmp)
+    else:
+        for i, rpp in enumerate(args.root_path_pattern):
+            tmp = {}
+            tmp['linestyle'] = None
+            tmp['color'] = None
+            tmp['name'] = rpp
+            tmp['data'] = roots2Df(rpp, config)
+            data.append(tmp)
 
-    size = config.get('figsize', ())
-    size = (size[0], size[1])
+    for d in data:
+        csv = d.get('output_csv', None)
+        if csv:
+            d['data'].to_csv(csv)
+
+    size = config.get('figsize', None)
+    if size:
+        size = (size[0], size[1])
     fig = plt.figure(figsize=size)
     show_legend = config.get('plot_legend', True)
 
     # Plot for each key
     for i, plot_info in enumerate(plots):
-        for df in dfs:
+        ax1 = fig.add_subplot(len(plots), 1, i + 1)
+        for d in data:
+            df = d['data']
             keys = plot_info['keys'] if isinstance(plot_info['keys'], list) else [plot_info['keys']]
-            
-            ax1 = fig.add_subplot(len(plots), 1, i + 1)
+                        
 
             if "x2label" in config and 'polynomial_coefficients' in config:
                 ax2 = ax1.secondary_xaxis("top", functions=(primary_to_secondary, secondary_to_primary))
                 ax2.set_xlabel(config["x2label"])
             for j, key in enumerate(keys):                   
                 ax = ax1
-
-                colors = sns.color_palette('colorblind')
-                grid_styles = ['-', '--', '-.', ':', '.']
-                grid_style = grid_styles[j % len(grid_styles)]
-                color = colors[j]
-                if j > 0:
-                    ax = ax1.twinx()
+                if len(keys) > 1:
+                    colors = sns.color_palette('colorblind')
+                    grid_styles = ['-', '--', '-.', ':', '.']
+                    grid_style = grid_styles[j % len(grid_styles)]
+                    color = colors[j]
+                    if j > 0:
+                        ax = ax1.twinx()
+                else:
+                    color = None
+                    grid_style = '-'
 
                 keyrows = df[df['Key'] == key]
+                print(keyrows)
 
                 x = keyrows['xVal']
                 y = keyrows['Mean']
 
+                yscale = plot_info.get('yscale', None)
+                if yscale:
+                    y *= yscale
+                
+
+                if 'color' in plot_info:
+                    color = plot_info['color']
+                elif 'color' in d:
+                    color = d['color']
+
+                linestyle = plot_info.get('linestyle', None)
+                linewidth = plot_info.get('linewidth', None)
+
+                markersize = plot_info.get('markersize', None)
+                if not markersize :
+                    markersize = d.get('markersize', None)
+
+                if not linestyle:
+                    linestyle = d.get('linestyle', None)
+
                 yerr = (keyrows['errorLow'].values, keyrows['errorUp'].values)            
                 legend = 'auto' if show_legend else None
 
-                plot = sns.lineplot(x=x, y=y, label=df['Origin'][0], marker='o', ax=ax, color=color, legend=legend)                
-                # color = plot.get_lines()[-1].get_color() # get used color to also use it for error bars
-                # ax.yaxis.label.set_color(color)
-                # ax.tick_params(axis='y', colors=color)
-                # ax.spines['left'].set_color(color)
+                marker = d.get('marker', 'o')
+
+                plot = sns.lineplot(x=x, y=y, label=d['name'], markersize=markersize, marker=marker, ax=ax, color=color, legend=legend, linewidth=linewidth, linestyle=linestyle)                
+                color = plot.get_lines()[-1].get_color() # get used color to also use it for error bars
+                if config.get('color_yaxis', False):
+                    ax.yaxis.label.set_color(color)
+                    ax.tick_params(axis='y', colors=color)
+                    ax.spines['left'].set_color(color)
                 if config.get('plot_errorbars', True):
                     plt.errorbar(x, y, yerr=yerr, fmt='.', capsize=5, color=color)
 
+                # breakpoint()
                 ax.set_ylabel(keyrows['Name'].iloc[0])
                 ax.set_title(config.get('title'), None)
 
