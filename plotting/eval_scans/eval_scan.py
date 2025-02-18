@@ -69,6 +69,10 @@ def extractRMSForResiduals(hist, quantile=0.5, plot=False):
     # Calculate RMS
     truncated_rms = np.std(truncated_values)
 
+    N = np.sum(bin_contents)
+
+    std_err = truncated_rms / np.sqrt(2* (N - 1))
+
     if plot:
 
         print(f'lower q ={lower_q_value} for {lower_quantile}th Percentile')
@@ -91,7 +95,7 @@ def extractRMSForResiduals(hist, quantile=0.5, plot=False):
         plt.grid(True)
         # plt.savefig(output_plot)
         plt.show()
-    return  truncated_rms
+    return  truncated_rms, std_err
 
 def extractEfficiency(root_file, key):
     file = ROOT.TFile(root_file, 'READ')
@@ -157,9 +161,10 @@ def roots2Df(path, config):
                         continue
                     
                     std_dev_val = None
+                    std_error = None
                     N = 0
                     if 'residuals' in key:
-                        mean_val = extractRMSForResiduals(tkey, plot=False)
+                        mean_val, std_error = extractRMSForResiduals(tkey, plot=False)
                         N = 1
                     elif isinstance(tkey, uproot.behaviors.TH1.TH1):
                         hist_np = tkey.to_numpy()
@@ -169,8 +174,7 @@ def roots2Df(path, config):
                         mean_val = np.sum(hist_np[0] * unjagged_bins) / N
                         print(key, root_file, mean_val)
                         std_dev_val = np.sqrt(np.sum(hist_np[0] * (unjagged_bins - mean_val) ** 2) / N)
-                    
-                    std_error = None
+                                        
                     if std_dev_val:
                         std_error = std_dev_val / np.sqrt(N)
                     
