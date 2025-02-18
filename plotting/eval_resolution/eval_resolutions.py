@@ -26,8 +26,9 @@ def process_data(df1, df2, keys_to_interpret):
 
         if not vals1.empty and not vals2.empty:
             # Calculate the desired quantity
-            quantity = np.sqrt(vals1['Mean'] * vals2['Mean'])
-            results[key] = (vals1, vals2, quantity)
+            geometric_mean = np.sqrt(vals1['Mean'] * vals2['Mean'])
+            error = np.sqrt(vals1['StdErr'] * vals2['StdErr'])
+            results[key] = (vals1, vals2, geometric_mean, error)
         else:
             print(f"Warning: No data found for key '{key}' in one of the files.")
 
@@ -46,52 +47,40 @@ def generate_colors(n):
 
     return color_palette
 
-def plot_results(results, output_plot, config):
-    """Generate plots for each key and save them."""
-    fig = plt.figure(figsize=(16, 9))
+def plot_results(results, config, ax, name, color, marker, linestyle):
+    """Generate plots for each key and save them."""    
     
-
-
-    fontsize = config.get('fontsize', None)
-    if fontsize:
-        plt.rcParams.update({
-    'font.size': fontsize,  # Base font size
-    'axes.titlesize': fontsize,  # Title size
-    'axes.labelsize': fontsize,  # X/Y label size
-    'xtick.labelsize': fontsize,  # X tick label size
-    'ytick.labelsize': fontsize,  # Y tick label size
-    'legend.fontsize': fontsize,  # Legend text size
-    'legend.title_fontsize': fontsize  # Legend title size
-})
-        ax1 = fig.subplots()
+    ax1 = ax
 
     color_palette = generate_colors(len(results))  # Get unique color schemes for each key
 
-    for i, (key, (vals1, vals2, quantity)) in enumerate(results.items()):
+    for i, (key, (biased, unbiased, resolution, error)) in enumerate(results.items()):
         # Extract colors for the current key
         color_shades = color_palette[i]
 
         # Scatter plots with thin line plots for each dataset
-        ax1.plot(vals1['xVal'], quantity, color=color_shades[2], linewidth=3)
-        ax1.scatter(vals1['xVal'], quantity, label=f'Spatial resolution',
-                    color=color_shades[2], s=50)
+        sns.lineplot(x=biased['xVal'], y=resolution, color=color, linewidth=3, linestyle=linestyle, label=name, marker=marker, markersize=10)
+        # ax1.plot(biased['xVal'], resolution, color=color, linewidth=3, linestyle=linestyle)
+        # ax1.scatter(biased['xVal'], resolution, label=name,
+        #             color=color, s=50, marker=marker)
+        ax1.errorbar(biased['xVal'], resolution, yerr=error, fmt='.', capsize=5, color=color)
 
-        ax1.plot(vals1['xVal'], vals1['Mean'], color=color_shades[1], linewidth=1, linestyle='--')
-        ax1.scatter(vals1['xVal'], vals1['Mean'], label=f'$\\sigma$ biased',
-                    color=color_shades[1], s=50)
+        # ax1.plot(biased['xVal'], biased['Mean'], color=color_shades[1], linewidth=1, linestyle='--')
+        # ax1.scatter(biased['xVal'], biased['Mean'], label=f'$\\sigma$ biased',
+        #             color=color_shades[1], s=50)
 
-        ax1.plot(vals2['xVal'], vals2['Mean'], color=color_shades[0], linewidth=1, linestyle='--')
-        ax1.scatter(vals2['xVal'], vals2['Mean'], label=f'$\\sigma$ unbiased',
-                    color=color_shades[0], s=50)
+        # ax1.plot(unbiased['xVal'], unbiased['Mean'], color=color_shades[0], linewidth=1, linestyle='--')
+        # ax1.scatter(unbiased['xVal'], unbiased['Mean'], label=f'$\\sigma$ unbiased',
+        #             color=color_shades[0], s=50)
 
         # Add text labels above the lines, with the same color
-        x_max = vals1['xVal'].max()  # Find the maximum xVal
-        ax1.text(x_max - x_max / 2.0, quantity.iloc[-1] + 0.35, f'Spatial resolution', color=color_shades[2], fontsize=fontsize, weight='bold')
-        ax1.text(x_max - x_max / 2.0, vals1['Mean'].iloc[-1] + 0.35, f'$\\sigma$ biased', color=color_shades[1], fontsize=fontsize)
-        ax1.text(x_max - x_max / 2.0, vals2['Mean'].iloc[-1] + 0.35, f'$\\sigma$ unbiased', color=color_shades[0], fontsize=fontsize)
+        # x_max = biased['xVal'].max()  # Find the maximum xVal
+        # ax1.text(x_max - x_max / 2.0, quantity.iloc[-1] + 0.35, f'Spatial resolution', color=color_shades[2], fontsize=fontsize, weight='bold')
+        # ax1.text(x_max - x_max / 2.0, biased['Mean'].iloc[-1] + 0.35, f'$\\sigma$ biased', color=color_shades[1], fontsize=fontsize)
+        # ax1.text(x_max - x_max / 2.0, unbiased['Mean'].iloc[-1] + 0.35, f'$\\sigma$ unbiased', color=color_shades[0], fontsize=fontsize)
 
     # Add legend and labels
-    # plt.legend()
+    plt.legend()
     plt.grid()
     plt.xlabel(config.get('xlabel', ''))
     plt.ylabel(config.get('ylabel', ''))
@@ -109,9 +98,8 @@ def plot_results(results, output_plot, config):
         ax2 = ax1.secondary_xaxis("top", functions=(primary_to_secondary, secondary_to_primary))
         ax2.set_xlabel(config["x2label"])
 
-    # Save the plot to a file
-    plt.savefig(output_plot)
-    plt.show()
+    # Save the plot to a file    
+    # plt.show()
 
 # Define the transformation function
 def primary_to_secondary(x):
@@ -143,14 +131,58 @@ def main():
 
 
     # Load the CSV files specified in the config
-    df1 = pd.read_csv(config['data_biased'])
-    df2 = pd.read_csv(config['data_unbiased'])
+    data_biased = config['data_biased']
+    if not isinstance(data_biased, list):
+        data_biased = [data_biased]
 
-    # Process the data
-    results = process_data(df1, df2, config['keys_to_interpret'])
+    data_unbiased = config['data_unbiased']
+    if not isinstance(data_unbiased, list):
+        data_biased = [data_unbiased]
 
-    # Plot the results and save the plot
-    plot_results(results, config['output_plot'], config)
+    names = config['names']
+    if not isinstance(names, list):
+        names = [names]
+
+    colors = config['colors']
+    if not isinstance(colors, list):
+        colors = [colors]
+
+    fontsize = config.get('fontsize', None)
+
+    if fontsize is not None:
+        plt.rcParams.update({
+            'font.size': fontsize,  # Base font size
+            'axes.titlesize': fontsize,  # Title size
+            'axes.labelsize': fontsize,  # X/Y label size
+            'xtick.labelsize': fontsize,  # X tick label size
+            'ytick.labelsize': fontsize,  # Y tick label size
+            'legend.fontsize': fontsize,  # Legend text size
+            'legend.title_fontsize': fontsize  # Legend title size
+        })
+    fig = plt.figure(figsize=(20, 12))
+    ax = fig.subplots()
+
+    for i, _ in enumerate(data_biased):
+
+        print('\n\nnumber', i, '\n\n')
+        df1 = pd.read_csv(data_biased[i])
+        df2 = pd.read_csv(data_unbiased[i])
+        name = names[i]
+        color = colors[i]
+        linestyle = config['linestyles'][i]
+        marker = config['markers'][i]
+
+        # Process the data
+        results = process_data(df1, df2, config['keys_to_interpret'])
+
+        # Plot the results and save the plot
+        
+
+        # plot_results(results, config, ax, name, color)
+        plot_results(results=results, config=config, ax=ax, color=color, name=name, linestyle=linestyle, marker=marker)
+
+    plt.savefig(config['output_plot'])
+    plt.show()
 
 
 if __name__ == "__main__":
