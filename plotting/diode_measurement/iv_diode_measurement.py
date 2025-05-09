@@ -61,7 +61,10 @@ def plot_iv_curve(file_path, first, **kwargs):
         label = sensor
     fmt = kwargs['sensor_fmt_map'][kwargs['sensor']]
 
-    font_size = kwargs['font_size']
+    font_size = kwargs.get('font_size', None)
+    if font_size is None:
+        font_size = 30
+        
     if first:
         fig, ax = plt.subplots(figsize=(20, 11))    
         matplotlib.rc('font', size=font_size)

@@ -1,7 +1,13 @@
 min_temperature: -20
 max_temperature: 0
-y_range: [1E-7, 1E-4]
-x_range: [0, 800]
+y_range:
+  - 30e-9
+  - 1e-4
+x_range:
+  - 0
+  - 800
+font_size: 35
+output_file: ivs.png
 title: 'IV measurements of backside biased samples'
 sensor_fmt_map:
    'w3-1E14 Bsb-Annealed' : '-'
